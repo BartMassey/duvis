@@ -17,6 +17,7 @@
 struct entry {
     uint64_t size;
     uint32_t n_components;
+    char *path;   /* for later free */
     char **components;
 };
 
@@ -74,15 +75,7 @@ void read_entries(FILE *f) {
             perror("realloc");
             exit(1);
         }
-        /* Parse the line. */
-        char *index = path;
-        while (isdigit(*index))
-            index++;
-        if (index == path || (*index != ' ' && *index != '\t')) {
-            fprintf(stderr, "line %d: buffer format error\n", line_number);
-            exit(1);
-        }
-        /* While parsing the line, allocate a new entry to it. */
+        /* Allocate a new entry for the line. */
         while (n_entries >= max_entries) {
             if (max_entries == 0)
                 max_entries = DU_INIT_ENTRIES_SIZE;
@@ -95,6 +88,15 @@ void read_entries(FILE *f) {
             }
         }
         struct entry *entry = &entries[n_entries++];
+        entry->path = path;
+        /* Start to parse the line. */
+        char *index = path;
+        while (isdigit(*index))
+            index++;
+        if (index == path || (*index != ' ' && *index != '\t')) {
+            fprintf(stderr, "line %d: buffer format error\n", line_number);
+            exit(1);
+        }
         /* Parse the size field. */
         *index++ = '\0';
         int n_scanned = sscanf(path, "%lu", &entry->size);
@@ -124,7 +126,8 @@ void read_entries(FILE *f) {
                 *index++ = '\0';
                 entry->components[entry->n_components++] = index;
                 assert(entry->n_components < DU_COMPONENTS_MAX);
-            } else {
+            }
+            else {
                 index++;
             }
         }
