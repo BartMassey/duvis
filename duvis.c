@@ -140,7 +140,21 @@ void read_entries(FILE *f) {
     assert(0);
 }
 
+int compare_entries(const void *p1, const void * p2) {
+    const struct entry *e1 = p1;
+    const struct entry *e2 = p2;
+    for (int i = 0; i < e1->n_components && i < e2->n_components; i++) {
+        int q = strcmp(e1->components[i], e2->components[i]);
+        if (q != 0)
+            return q;
+    }
+    return (e1->n_components - e2->n_components);
+}
+
 int main() {
+    fprintf(stderr, "(1) Parsing du file.\n");
     read_entries(stdin);
+    fprintf(stderr, "(2) Sorting entries.\n");
+    qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
     return 0;
 }
