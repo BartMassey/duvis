@@ -9,10 +9,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Number of entries to consider "largest small". */
 #define DU_INIT_ENTRIES_SIZE (128 * 1024)
-/* for portability */
+
+/* For portability. */
 #define DU_PATH_MAX 4096
-#define DU_COMPONENTS_MAX 4096
+#define DU_COMPONENTS_MAX DU_PATH_MAX
+
+/* Number of spaces of indent per level. */
+#define N_INDENT 2
 
 struct entry {
     uint64_t size;
@@ -164,10 +169,22 @@ int compare_entries(const void *p1, const void * p2) {
     return 0;
 }
 
+void show_entries(void) {
+    for (int i = 0; i < n_entries; i++) {
+        int n = entries[i].n_components;
+        for (int j = 0; j < n - 1; j++)
+            for (int k = 0; k < N_INDENT; k++)
+                putchar(' ');
+        printf("%s %lu\n", entries[i].components[n - 1], entries[i].size);
+    }
+}
+
 int main() {
     fprintf(stderr, "(1) Parsing du file.\n");
     read_entries(stdin);
     fprintf(stderr, "(2) Sorting entries.\n");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
+    fprintf(stderr, "(3) Rendering tree.\n");
+    show_entries();
     return 0;
 }
