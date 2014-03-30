@@ -24,6 +24,7 @@ struct entry {
     uint32_t n_components;
     char *path;   /* for later free */
     char **components;
+    struct entry **children;
 };
 
 int n_entries = 0;
@@ -94,6 +95,7 @@ void read_entries(FILE *f) {
         }
         struct entry *entry = &entries[n_entries++];
         entry->path = path;
+        entry->children = 0;
         /* Start to parse the line. */
         char *index = path;
         while (isdigit(*index))
@@ -148,6 +150,11 @@ void read_entries(FILE *f) {
     assert(0);
 }
 
+/*
+ * Priorities for sort:
+ *   (1) Prefixes before path extensions.
+ *   (2) Ascending alphabetical order.
+ */
 int compare_entries(const void *p1, const void * p2) {
     const struct entry *e1 = p1;
     const struct entry *e2 = p2;
@@ -160,13 +167,37 @@ int compare_entries(const void *p1, const void * p2) {
     }
     if (n1 != n2)
         return (n1 - n2);
-    uint64_t s1 = e1->size;
-    uint64_t s2 = e2->size;
-    if (s1 > s2)
-        return -1;
-    if (s1 < s2)
-        return 1;
-    return 0;
+    assert(0);
+}
+
+void build_tree(int start, int end, int offset) {
+    int i = start;
+    while (i < end) {
+        struct entry *e = &entries[i];
+        if (e->n_components != offset + 1) {
+            fprintf(stderr, "line %d: missing size\n", i + 1);
+            exit(1);
+        }
+        int j = i + 1;
+        while (j < end &&
+               !strcmp(entries[i].components[offset],
+                       entries[j].components[offset])) {
+            if (entries[j].n_components <= offset + 1) {
+                fprintf(stderr, "line %d: redundancy\n", j + 1);
+                exit(1);
+            }
+            j++;
+        }
+        e->children = malloc((j - i - 1) * sizeof(e->children[0]));
+        if (!e->children) {
+            perror("malloc");
+            exit(1);
+        }
+        for (int k = i + 1; k < j; k++)
+            e->children[k - i - 1] = &e[j];
+        build_tree(i + 1, j, offset + 1);
+        i = j;
+    }
 }
 
 void show_entries(void) {
@@ -184,7 +215,9 @@ int main() {
     read_entries(stdin);
     fprintf(stderr, "(2) Sorting entries.\n");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-    fprintf(stderr, "(3) Rendering tree.\n");
+    fprintf(stderr, "(3) Building tree.\n");
+    build_tree(0, n_entries, 0);
+    fprintf(stderr, "(4) Rendering tree.\n");
     show_entries();
     return 0;
 }
