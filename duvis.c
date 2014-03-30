@@ -159,7 +159,7 @@ int compare_entries(const void *p1, const void * p2) {
             return q;
     }
     if (n1 != n2)
-        return (e1 - e2);
+        return (n1 - n2);
     uint64_t s1 = e1->size;
     uint64_t s2 = e2->size;
     if (s1 > s2)
