@@ -146,12 +146,22 @@ void read_entries(FILE *f) {
 int compare_entries(const void *p1, const void * p2) {
     const struct entry *e1 = p1;
     const struct entry *e2 = p2;
-    for (int i = 0; i < e1->n_components && i < e2->n_components; i++) {
+    int n1 = e1->n_components;
+    int n2 = e2->n_components;
+    for (int i = 0; i < n1 && i < n2; i++) {
         int q = strcmp(e1->components[i], e2->components[i]);
         if (q != 0)
             return q;
     }
-    return (e1->n_components - e2->n_components);
+    if (n1 != n2)
+        return (e1 - e2);
+    uint64_t s1 = e1->size;
+    uint64_t s2 = e2->size;
+    if (s1 > s2)
+        return -1;
+    if (s1 < s2)
+        return 1;
+    return 0;
 }
 
 int main() {
