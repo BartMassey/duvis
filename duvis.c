@@ -172,35 +172,44 @@ int compare_entries(const void *p1, const void * p2) {
     assert(0);
 }
 
+/*
+ * Build a tree in the entry structure. The two-pass
+ * design means monotonic malloc() usage, because efficiency.
+ */
 void build_tree(uint32_t start, uint32_t end, int offset) {
-    uint32_t i = start;
+    /* Set up for calculation. */
+    struct entry *e = &entries[start];
+    if (e->n_components != offset + 1) {
+        fprintf(stderr, "index %d: unexpected entry\n", start + 1);
+        exit(1);
+    }
+    /* Pass 1: Count and allocate direct children. */
+    for (int i = start + 1; i < end; i++)
+        if (entries[i].n_components == offset + 2)
+            e->n_children++;
+    e->children = malloc(e->n_children * sizeof(e->children[0]));
+    if (!e->children) {
+        perror("malloc");
+        exit(1);
+    }
+    /* Pass 2: Fill direct children and build subtrees. */
+    int n_children = 0;
+    int i = start + 1;
     while (i < end) {
-        struct entry *e = &entries[i];
-        if (e->n_components != offset + 1) {
-            fprintf(stderr, "line %d: missing size\n", i + 1);
+        if (entries[i].n_components != offset + 2) {
+            fprintf(stderr, "index %d: missing entry\n", i + 1);
             exit(1);
         }
-        uint32_t j = i + 1;
-        while (j < end &&
-               !strcmp(entries[i].components[offset],
-                       entries[j].components[offset])) {
-            if (entries[j].n_components <= offset + 1) {
-                fprintf(stderr, "line %d: redundancy\n", j + 1);
-                exit(1);
-            }
+        e->children[n_children++] = &entries[i];
+        int j = i + 1;
+        /* Walk to end of subtree. */
+        while (j < end && entries[j].n_components > offset + 2 &&
+               !strcmp(entries[i].components[offset + 1],
+                       entries[j].components[offset + 1]))
             j++;
-        }
-        e->n_children = j - i - 1;
-        if (e->n_children > 0) {
-            e->children = malloc(e->n_children * sizeof(e->children[0]));
-            if (!e->children) {
-                perror("malloc");
-                exit(1);
-            }
-            for (uint32_t k = 0; k < e->n_children; k++)
-                e->children[k] = &entries[i + 1 + k];
-            build_tree(i + 1, j, offset + 1);
-        }
+        /* If subtree is found, build it. */
+        if (j > i + 1)
+            build_tree(i, j, offset + 1);
         i = j;
     }
 }
@@ -212,6 +221,7 @@ void indent(int depth) {
 
 void show_entries(struct entry *root, int depth) {
     indent(depth);
+    assert(root->n_components == depth + 1);
     printf("%s %lu\n", root->components[depth], root->size);
     for (int i = 0; i < root->n_children; i++)
         show_entries(root->children[i], depth + 1);
