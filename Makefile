@@ -12,4 +12,4 @@ duvis: duvis.o
 	$(CC) $(CFLAGS) -o duvis duvis.o
 
 clean:
-	-rm -f duvis duvis.o core core.*
+	-rm -f duvis duvis.o
