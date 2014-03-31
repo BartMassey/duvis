@@ -1,5 +1,5 @@
 /* Copyright © 2014 Bart Massey */
-/* xdu replacement with reasonable performance */
+/* ASCII xdu replacement with reasonable performance. */
 
 #include <assert.h>
 #include <ctype.h>
@@ -24,6 +24,7 @@ struct entry {
     uint32_t n_components;
     char *path;   /* for later free */
     char **components;
+    uint32_t n_children;
     struct entry **children;
 };
 
@@ -95,6 +96,7 @@ void read_entries(FILE *f) {
         }
         struct entry *entry = &entries[n_entries++];
         entry->path = path;
+        entry->n_children = 0;
         entry->children = 0;
         /* Start to parse the line. */
         char *index = path;
@@ -170,15 +172,15 @@ int compare_entries(const void *p1, const void * p2) {
     assert(0);
 }
 
-void build_tree(int start, int end, int offset) {
-    int i = start;
+void build_tree(uint32_t start, uint32_t end, int offset) {
+    uint32_t i = start;
     while (i < end) {
         struct entry *e = &entries[i];
         if (e->n_components != offset + 1) {
             fprintf(stderr, "line %d: missing size\n", i + 1);
             exit(1);
         }
-        int j = i + 1;
+        uint32_t j = i + 1;
         while (j < end &&
                !strcmp(entries[i].components[offset],
                        entries[j].components[offset])) {
@@ -188,36 +190,58 @@ void build_tree(int start, int end, int offset) {
             }
             j++;
         }
-        e->children = malloc((j - i - 1) * sizeof(e->children[0]));
-        if (!e->children) {
-            perror("malloc");
-            exit(1);
+        e->n_children = j - i - 1;
+        if (e->n_children > 0) {
+            e->children = malloc(e->n_children * sizeof(e->children[0]));
+            if (!e->children) {
+                perror("malloc");
+                exit(1);
+            }
+            for (uint32_t k = 0; k < e->n_children; k++)
+                e->children[k] = &entries[i + 1 + k];
+            build_tree(i + 1, j, offset + 1);
         }
-        for (int k = i + 1; k < j; k++)
-            e->children[k - i - 1] = &e[j];
-        build_tree(i + 1, j, offset + 1);
         i = j;
     }
 }
 
-void show_entries(void) {
+void indent(int depth) {
+    for (int i = 0; i < N_INDENT * depth; i++)
+        putchar(' ');
+}
+
+void show_entries(struct entry *root, int depth) {
+    indent(depth);
+    printf("%s %lu\n", root->components[depth], root->size);
+    for (int i = 0; i < root->n_children; i++)
+        show_entries(root->children[i], depth + 1);
+}
+
+#if 0
+void show_list(void) {
     for (int i = 0; i < n_entries; i++) {
-        int n = entries[i].n_components;
-        for (int j = 0; j < n - 1; j++)
-            for (int k = 0; k < N_INDENT; k++)
-                putchar(' ');
-        printf("%s %lu\n", entries[i].components[n - 1], entries[i].size);
+        struct entry *e = &entries[i];
+        assert(e->n_components > 0);
+        printf("%s", e->components[0]);
+        for (int j = 1; j < e->n_components; j++)
+            printf("/%s", e->components[j]);
+        printf("\n");
     }
 }
+#endif
 
 int main() {
     fprintf(stderr, "(1) Parsing du file.\n");
     read_entries(stdin);
     fprintf(stderr, "(2) Sorting entries.\n");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
+#if 0
+    show_list();
+    return 0;
+#endif
     fprintf(stderr, "(3) Building tree.\n");
     build_tree(0, n_entries, 0);
     fprintf(stderr, "(4) Rendering tree.\n");
-    show_entries();
+    show_entries(&entries[0], 0);
     return 0;
 }
