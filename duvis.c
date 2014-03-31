@@ -217,28 +217,11 @@ void show_entries(struct entry *root, int depth) {
         show_entries(root->children[i], depth + 1);
 }
 
-#if 0
-void show_list(void) {
-    for (int i = 0; i < n_entries; i++) {
-        struct entry *e = &entries[i];
-        assert(e->n_components > 0);
-        printf("%s", e->components[0]);
-        for (int j = 1; j < e->n_components; j++)
-            printf("/%s", e->components[j]);
-        printf("\n");
-    }
-}
-#endif
-
 int main() {
     fprintf(stderr, "(1) Parsing du file.\n");
     read_entries(stdin);
     fprintf(stderr, "(2) Sorting entries.\n");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-#if 0
-    show_list();
-    return 0;
-#endif
     fprintf(stderr, "(3) Building tree.\n");
     build_tree(0, n_entries, 0);
     fprintf(stderr, "(4) Rendering tree.\n");
