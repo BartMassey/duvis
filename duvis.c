@@ -30,6 +30,7 @@ struct entry {
     uint32_t n_components;
     char *path;   /* for later free */
     char **components;
+    uint32_t depth;
     uint32_t n_children;
     struct entry **children;
 };
@@ -158,6 +159,9 @@ void read_entries(FILE *f) {
     assert(0);
 }
 
+/* Component length of initial prefix. */
+uint32_t base_depth = 0;
+
 /*
  * Priorities for sort:
  *   (1) Prefixes before path extensions.
@@ -178,20 +182,53 @@ int compare_entries(const void *p1, const void * p2) {
     assert(0);
 }
 
+/* Because unsigned. This should get inlined. */
+int compare_sizes(uint32_t s1, uint32_t s2) {
+    if (s1 < s2)
+        return -1;
+    if (s1 > s2)
+        return 1;
+    return 0;
+}
+
 /*
- * Build a tree in the entry structure. The two-pass
- * design means monotonic malloc() usage, because efficiency.
+ * Priorities for sort:
+ *   (1) Descending entry size.
+ *   (2) Ascending alphabetical order.
  */
-void build_tree(uint32_t start, uint32_t end, int offset) {
+int compare_subtrees(const void *p1, const void * p2) {
+    struct entry * const *e1 = p1;
+    struct entry * const *e2 = p2;
+    int s1 = (*e1)->size;
+    int s2 = (*e2)->size;
+    int q = compare_sizes(s2, s1);
+    if (q != 0)
+        return q;
+    assert((*e1)->depth == (*e2)->depth);
+    int depth = (*e1)->depth;
+    q = strcmp((*e1)->components[depth + base_depth - 1],
+               (*e2)->components[depth + base_depth - 1]);
+    if (q != 0)
+        return q;
+    assert(0);
+}
+
+/*
+ * Build a tree in the entry structure. The three-pass design
+ * is for monotonic malloc() usage, because efficiency.
+ */
+void build_tree(uint32_t start, uint32_t end, uint32_t depth) {
     /* Set up for calculation. */
     struct entry *e = &entries[start];
-    if (e->n_components != offset + 1) {
+    uint32_t offset = depth + base_depth;
+    if (e->n_components != offset) {
         fprintf(stderr, "index %d: unexpected entry\n", start + 1);
         exit(1);
     }
+    e->depth = depth;
     /* Pass 1: Count and allocate direct children. */
     for (int i = start + 1; i < end; i++)
-        if (entries[i].n_components == offset + 2)
+        if (entries[i].n_components == offset + 1)
             e->n_children++;
     e->children = malloc(e->n_children * sizeof(e->children[0]));
     if (!e->children) {
@@ -202,45 +239,66 @@ void build_tree(uint32_t start, uint32_t end, int offset) {
     int n_children = 0;
     int i = start + 1;
     while (i < end) {
-        if (entries[i].n_components != offset + 2) {
+        if (entries[i].n_components != offset + 1) {
             fprintf(stderr, "index %d: missing entry\n", i + 1);
             exit(1);
         }
         e->children[n_children++] = &entries[i];
+        entries[i].depth = depth + 1;
         int j = i + 1;
         /* Walk to end of subtree. */
-        while (j < end && entries[j].n_components > offset + 2 &&
-               !strcmp(entries[i].components[offset + 1],
-                       entries[j].components[offset + 1]))
+        while (j < end && entries[j].n_components > offset + 1 &&
+               !strcmp(entries[i].components[offset],
+                       entries[j].components[offset]))
             j++;
         /* If subtree is found, build it. */
         if (j > i + 1)
-            build_tree(i, j, offset + 1);
+            build_tree(i, j, depth + 1);
         i = j;
     }
+    assert(n_children == e->n_children);
+    /* Pass 3: Sort the children. Should this be here or in display? */
+    qsort(e->children, e->n_children, sizeof(e->children[0]),
+          compare_subtrees);
 }
 
-void indent(int depth) {
-    for (int i = 0; i < N_INDENT * depth; i++)
+void indent(uint32_t depth) {
+    for (uint64_t i = 0; i < N_INDENT * depth; i++)
         putchar(' ');
 }
 
-void show_entries(struct entry *root, int depth) {
-    indent(depth);
-    assert(root->n_components == depth + 1);
-    printf("%s %lu\n", root->components[depth], root->size);
-    for (int i = 0; i < root->n_children; i++)
-        show_entries(root->children[i], depth + 1);
+void show_entries(struct entry *e) {
+    uint32_t depth = e->depth;
+    if (depth == 0) {
+        printf("%s", e->components[0]);
+        for (uint32_t i = 1; i < base_depth; i++)
+            printf("/%s", e->components[i]);
+        printf(" %lu\n", e->size);
+    }
+    else {
+        indent(depth);
+        printf("%s %lu\n",
+               e->components[e->n_components - 1], e->size);
+    }
+    for (uint32_t i = 0; i < e->n_children; i++)
+        show_entries(e->children[i]);
 }
 
 int main() {
     fprintf(stderr, "(1) Parsing du file.\n");
     read_entries(stdin);
+    if (n_entries == 0)
+        return 0;
     fprintf(stderr, "(2) Sorting entries.\n");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
     fprintf(stderr, "(3) Building tree.\n");
+    if (entries[0].n_components == 0) {
+        fprintf(stderr, "mysterious zero-length entry in table\n");
+        exit(1);
+    }
+    base_depth = entries[0].n_components;
     build_tree(0, n_entries, 0);
     fprintf(stderr, "(4) Rendering tree.\n");
-    show_entries(&entries[0], 0);
+    show_entries(&entries[0]);
     return 0;
 }
