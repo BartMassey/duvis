@@ -1,0 +1,47 @@
+.TH DUVIS 1 "2014-03-31"
+.SH NAME
+duvis \- ASCII visualization of du disk usage information
+.SH SYNOPSIS
+duvis
+.SH DESCRIPTION
+.PP
+The
+.I duvis
+program provides an ASCII visualization of the output of
+.IR du (1)
+suitable for understanding how storage is being used. The
+output of
+.I duvis
+is the paths that were input, with
+only the last component shown except at the root, indented
+according to nesting depth, and sorted at each level by
+decreasing size, with ties broken alphabetically.
+.SH USAGE
+.PP
+As with
+.IR xdu ,
+you invoke
+.I duvis
+on the output of
+.IR du ;
+currently the
+.I du
+output is read from standard input, so
+either a pipe or a file is fine. The
+.I du
+output must be
+complete, in the sense that every prefix of every path in
+the file has an entry (with the exception of the common
+prefix that was given to
+.IR du );
+both relative and absolute
+paths work.
+.SH AUTHOR
+.I "Bart Massey <bart@cs.pdx.edu>"
+.SH LICENSE
+This software is Copyright (c) 2014 Bart Massey. It is
+licensed under the "MIT License".  Please
+see the file
+.I COPYING
+in the source distribution of this
+software for license terms.

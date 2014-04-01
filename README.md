@@ -31,12 +31,14 @@ As with `xdu`, you invoke `duvis` on the output of `du`;
 currently the `du` output is read from standard input, so
 either a pipe or a file is fine. The `du` output must be
 complete, in the sense that every prefix of every path in
-the file has an entry. Currently, absolute path names don't
-work due to a bug, so the right invocation of `du` is usually
+the file has an entry (with the exception of the common
+prefix that was given to `du`); both relative and absolute
+paths work.
 
-        du -ax .
-
-while sitting in the directory to be measured.
+The output of `duvis` is the paths that were input, with
+only the last component shown except at the root, indented
+according to nesting depth, and sorted at each level by
+decreasing size, with ties broken alphabetically.
 
 ## License
 
