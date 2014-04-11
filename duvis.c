@@ -217,7 +217,7 @@ int compare_subtrees(const void *p1, const void * p2) {
  * Build a tree in the entry structure. The three-pass design
  * is for monotonic malloc() usage, because efficiency.
  */
-void build_tree(uint32_t start, uint32_t end, uint32_t depth) {
+void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
     /* Set up for calculation. */
     struct entry *e = &entries[start];
     uint32_t offset = depth + base_depth;
@@ -253,7 +253,7 @@ void build_tree(uint32_t start, uint32_t end, uint32_t depth) {
             j++;
         /* If subtree is found, build it. */
         if (j > i + 1)
-            build_tree(i, j, depth + 1);
+            build_tree_preorder(i, j, depth + 1);
         i = j;
     }
     assert(n_children == e->n_children);
@@ -284,21 +284,26 @@ void show_entries(struct entry *e) {
         show_entries(e->children[i]);
 }
 
+void status(char *msg) {
+    static int pass = 1;
+    fprintf(stderr, "(%d) %s\n", pass++, msg);
+}
+
 int main() {
-    fprintf(stderr, "(1) Parsing du file.\n");
+    status("Parsing du file.");
     read_entries(stdin);
     if (n_entries == 0)
         return 0;
-    fprintf(stderr, "(2) Sorting entries.\n");
+    status("Sorting entries.");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-    fprintf(stderr, "(3) Building tree.\n");
+    status("Building tree.");
     if (entries[0].n_components == 0) {
         fprintf(stderr, "mysterious zero-length entry in table\n");
         exit(1);
     }
     base_depth = entries[0].n_components;
-    build_tree(0, n_entries, 0);
-    fprintf(stderr, "(4) Rendering tree.\n");
+    build_tree_preorder(0, n_entries, 0);
+    status("Rendering tree.");
     show_entries(&entries[0]);
     return 0;
 }
