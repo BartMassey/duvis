@@ -26,13 +26,13 @@
 #define N_INDENT 2
 
 struct entry {
-    uint64_t size;
-    uint32_t n_components;
-    char *path;   /* for later free */
-    char **components;
-    uint32_t depth;
-    uint32_t n_children;
-    struct entry **children;
+    uint64_t size;		
+    uint32_t n_components;	// # of components that makeup this entry
+    char *path;   		// for later free 
+    char **components;		// The actual components of this entry
+    uint32_t depth;		// The depth of this entry in the directory tree
+    uint32_t n_children;	// # of children directories at this entry level
+    struct entry **children;	// Children entries of this entry
 };
 
 int n_entries = 0;
@@ -115,7 +115,7 @@ void read_entries(FILE *f) {
         }
         /* Parse the size field. */
         *index++ = '\0';
-        int n_scanned = sscanf(path, "%lu", &entry->size);
+        int n_scanned = sscanf(path, "%lu", &entry->size);  //Should be: PRIu64
         if (n_scanned != 1) {
             fprintf(stderr, "line %d: size parse failure\n", line_number);
             exit(1);
@@ -213,6 +213,11 @@ int compare_subtrees(const void *p1, const void * p2) {
     assert(0);
 }
 
+// Not implemented yet
+void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
+	
+}
+
 /*
  * Build a tree in the entry structure. The three-pass design
  * is for monotonic malloc() usage, because efficiency.
@@ -289,13 +294,68 @@ void status(char *msg) {
     fprintf(stderr, "(%d) %s\n", pass++, msg);
 }
 
+/*
+ *  Helper/testing function for displaying detailed information 
+ *  about the entries that have been read in from du.
+ */
+void dispEntryDetail (struct entry e[], int n) { 
+	printf("Detail of Entries\n# of Entries: %d\n\n", n);
+
+	for(int i = 0; i < n; i++) {
+		printf("Index: %d\n", i);
+		printf("Size: %" PRIu64 "\n", e[i].size);	
+		printf("Depth: %d\n", e[i].depth);
+		printf("# Children: %d\n", e[i].n_children);
+		printf("# Components: %d\n", e[i].n_components);
+		printf("Components: \n");
+
+		if(e[i].n_components) {
+			for(int j = 0; j < e[i].n_components; j++) {
+				printf("%s\n", e[i].components[j]);
+			}
+		}
+
+		printf("\n");
+	}
+
+}
+
+/*
+ *  Helper/testing function for displaying a simplified order
+ *  that entries are currently in - formatted for directory
+ *  view. Includes information about the size.
+ */ 
+void dispEntries(struct entry e[], int n) {
+	printf("Simple Entries\n# of Entries: %d\n\n", n);
+
+	for(int i = 0; i < n; i++) {
+		if(e[i].n_components) {
+			for(int j = 0; j < e[i].n_components; j++) {
+				printf("%s/", e[i].components[j]);
+			}
+			
+			printf(" ,%" PRIu64 "\n", e[i].size);
+		}
+	}
+}
+
+
 int main() {
     status("Parsing du file.");
     read_entries(stdin);
     if (n_entries == 0)
         return 0;
+    
+    status("Displaying diagnostic information.");
+    dispEntryDetail(entries, n_entries);
+    dispEntries(entries, n_entries);
+
     status("Sorting entries.");
     qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
+
+    status("Displaying results of sorting");
+    dispEntries(entries, n_entries);
+
     status("Building tree.");
     if (entries[0].n_components == 0) {
         fprintf(stderr, "mysterious zero-length entry in table\n");
@@ -305,5 +365,6 @@ int main() {
     build_tree_preorder(0, n_entries, 0);
     status("Rendering tree.");
     show_entries(&entries[0]);
-    return 0;
+
+    return(0);
 }
