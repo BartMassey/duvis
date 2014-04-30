@@ -115,7 +115,7 @@ void read_entries(FILE *f) {
         }
         /* Parse the size field. */
         *index++ = '\0';
-        int n_scanned = sscanf(path, "%lu", &entry->size);  //Should be: PRIu64
+        int n_scanned = sscanf(path, "%" PRIu64, &entry->size);  //Should be: PRIu64
         if (n_scanned != 1) {
             fprintf(stderr, "line %d: size parse failure\n", line_number);
             exit(1);
@@ -213,9 +213,62 @@ int compare_subtrees(const void *p1, const void * p2) {
     assert(0);
 }
 
-// Not implemented yet
-void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
+/*
+ * Build a tree in the entry structure. This implementation
+ * utilizes post-order traversal and takes advantage of the
+ * existing du sorted output. Must pass n_components as depth.
+ */
+ 
+void build_tree_postorder(uint32_t start, uint32_t end, uint32_t height) {
+    
+    // Prepare for calculation
+    struct entry *e = &entries[start];
+    uint32_t offset = base_depth - height;
+
+    printf("Offset = %d\n", offset);
+
+    if (e->n_components != offset)
+    {
+	fprintf(stderr, "Index %d: unexpected entry\n", start);
+	exit(1);
+    }
+
+    /*
+     * The depth of this directory is the number of
+     * components it has.
+     */
+    e->depth = offset;
+
+    int n_children = 0;
+    int i = start + 1;
+
+    while (i < end) {
+	int j = i + 1;
+
+
+	printf("Entered first while loop\n");
+	printf("strcmp sanity check:\n");
+	printf("%s\n", entries[i].components[0]); 
+	printf("%s\n", entries[j].components[0]);
+		
+	while (j < end && entries[j].n_components < offset 
+		       && !strcmp(entries[i].components[0],
+		       		  entries[j].components[0]))
+	{
+	    printf("Looking for subtrees %d\n", j);
+	    j++;
+	}
+
+	if (j > i + 1 )
+	{
+	    printf("Calling build_tree_postorder\n");
+	    build_tree_postorder(i, j, height + 1);
+	}
 	
+    }
+          
+    printf("Made it to end of postorder");      
+
 }
 
 /*
@@ -231,6 +284,7 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
         exit(1);
     }
     e->depth = depth;
+
     /* Pass 1: Count and allocate direct children. */
     for (int i = start + 1; i < end; i++)
         if (entries[i].n_components == offset + 1)
@@ -240,6 +294,7 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
         perror("malloc");
         exit(1);
     }
+
     /* Pass 2: Fill direct children and build subtrees. */
     int n_children = 0;
     int i = start + 1;
@@ -278,11 +333,11 @@ void show_entries(struct entry *e) {
         printf("%s", e->components[0]);
         for (uint32_t i = 1; i < base_depth; i++)
             printf("/%s", e->components[i]);
-        printf(" %lu\n", e->size);
+        printf(" %"PRIu64 "\n", e->size);
     }
     else {
         indent(depth);
-        printf("%s %lu\n",
+        printf("%s %"PRIu64"\n",
                e->components[e->n_components - 1], e->size);
     }
     for (uint32_t i = 0; i < e->n_children; i++)
@@ -292,7 +347,7 @@ void show_entries(struct entry *e) {
 void status(char *msg) {
     static int pass = 1;
     fprintf(stderr, "(%d) %s\n", pass++, msg);
-}
+} 
 
 /*
  *  Helper/testing function for displaying detailed information 
@@ -317,7 +372,6 @@ void dispEntryDetail (struct entry e[], int n) {
 
 		printf("\n");
 	}
-
 }
 
 /*
@@ -347,22 +401,25 @@ int main() {
         return 0;
     
     status("Displaying diagnostic information.");
+    dispEntries(entries, n_entries);
     dispEntryDetail(entries, n_entries);
-    dispEntries(entries, n_entries);
 
-    status("Sorting entries.");
-    qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-
-    status("Displaying results of sorting");
-    dispEntries(entries, n_entries);
-
+    //status("Sorting entries.");
+    //qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
+ 
     status("Building tree.");
     if (entries[0].n_components == 0) {
         fprintf(stderr, "mysterious zero-length entry in table\n");
         exit(1);
     }
     base_depth = entries[0].n_components;
-    build_tree_preorder(0, n_entries, 0);
+    //build_tree_preorder(0, n_entries, 0);
+
+    build_tree_postorder(0, n_entries, 0);
+
+    status("After build_tree_preorder.");
+    dispEntryDetail(entries, n_entries);
+
     status("Rendering tree.");
     show_entries(&entries[0]);
 
