@@ -226,18 +226,18 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t height) {
     uint32_t offset = base_depth - height;
 
     printf("Offset = %d\n", offset);
+    printf("start = %d\n", start);
+    printf("End = %d\n", end);
 
-    if (e->n_components != offset)
-    {
-	fprintf(stderr, "Index %d: unexpected entry\n", start);
-	exit(1);
-    }
+    
+    // depth of directory == # components
+    e->depth = offset;
 
     /*
-     * The depth of this directory is the number of
-     * components it has.
+     * Need to allocate memory for children but not currently
+     * sure how to accomplish this when coming from the other
+     * direction? May need to adjust function call... 
      */
-    e->depth = offset;
 
     int n_children = 0;
     int i = start + 1;
@@ -248,14 +248,14 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t height) {
 
 	printf("Entered first while loop\n");
 	printf("strcmp sanity check:\n");
-	printf("%s\n", entries[i].components[0]); 
-	printf("%s\n", entries[j].components[0]);
-		
-	while (j < end && entries[j].n_components < offset 
-		       && !strcmp(entries[i].components[0],
-		       		  entries[j].components[0]))
+	printf("%s\n", entries[start].components[offset - 1]);
+//	printf("%s\n", entries[i].components[offset - 2]); 
+//	printf("%s\n", entries[j].components[offset - 2]);
+	
+	// May need an additional condition 	
+	while (j < end && entries[j].n_components < offset)
 	{
-	    printf("Looking for subtrees %d\n", j);
+	    printf("Subtree index: %d\n", j);
 	    j++;
 	}
 
@@ -264,11 +264,13 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t height) {
 	    printf("Calling build_tree_postorder\n");
 	    build_tree_postorder(i, j, height + 1);
 	}
-	
-    }
-          
-    printf("Made it to end of postorder");      
 
+	i = j;	
+    }
+    // Children are not computed yet but should be checked here
+
+    // Comparison of subtrees here? May not need to be sorted
+    printf("Postorder call complete\n");      
 }
 
 /*
