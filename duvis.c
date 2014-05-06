@@ -216,60 +216,79 @@ int compare_subtrees(const void *p1, const void * p2) {
 /*
  * Build a tree in the entry structure. This implementation
  * utilizes post-order traversal and takes advantage of the
- * existing du sorted output. Must pass n_components as depth.
+ * existing du sorted output - assumes user wants du output
  */
  
-void build_tree_postorder(uint32_t start, uint32_t end, uint32_t height) {
+void build_tree_postorder(uint32_t start, uint32_t end) {
     
     // Prepare for calculation
     struct entry *e = &entries[start];
-    uint32_t offset = base_depth - height;
-
-    printf("Offset = %d\n", offset);
-    printf("start = %d\n", start);
-    printf("End = %d\n", end);
-
     
-    // depth of directory == # components
-    e->depth = offset;
-
     /*
      * Need to allocate memory for children but not currently
      * sure how to accomplish this when coming from the other
      * direction? May need to adjust function call... 
      */
 
-    int n_children = 0;
+    //int n_children = 0;
     int i = start + 1;
+    uint32_t offset = 0;
 
     while (i < end) {
 	int j = i + 1;
 
+	// Create a new function for finding the correct offset index
+	if(entries[i].n_components < entries[j].n_components)
+		offset = entries[i].n_components - 1;
+	else if(entries[i].n_components == entries[j].n_components)
+		offset = entries[j].n_components - 1;
+	else if(entries[i].n_components > entries[j].n_components)
+		offset = entries[j].n_components - 1;
 
+	// Are we near the end?
+	if(entries[j].n_components <= 1 || entries[i].n_components <= 1)	
+		offset = 0;
+
+	// DEBUGGING
+	printf("Offset: %d\n", offset);
+
+	if(j < end) {
 	printf("Entered first while loop\n");
-	printf("strcmp sanity check:\n");
-	printf("%s\n", entries[start].components[offset - 1]);
-//	printf("%s\n", entries[i].components[offset - 2]); 
-//	printf("%s\n", entries[j].components[offset - 2]);
-	
+	printf("j = %d\n", j);
+	printf("end = %d\n", end);
+	printf("[i].n_components = %d\n", entries[i].n_components);
+	printf("[j].n_components = %d\n", entries[j].n_components);
+	printf("[i].component = %s\n", entries[i].components[offset]);
+	printf("[j].component = %s\n", entries[j].components[offset]);
+	}
+
 	// May need an additional condition 	
-	while (j < end && entries[j].n_components < offset)
-	{
-	    printf("Subtree index: %d\n", j);
+	while (j < end && entries[j].n_components <= entries[i].n_components && entries[j].n_components != 1 && !strcmp(entries[i].components[offset], entries[j].components[offset])) {
+	    printf("Incrementing j\n");
 	    j++;
+	    printf("%d\n",j);
+
+	    // Create a new function to find the correct offset index
+	    if(entries[i].n_components < entries[j].n_components)
+		offset = entries[i].n_components - 1;
+	    else if(entries[i].n_components == entries[j].n_components)
+		offset = entries[j].n_components - 1;
+	    else if(entries[i].n_components > entries[j].n_components)
+		offset = entries[j].n_components - 1;
 	}
 
-	if (j > i + 1 )
+	if (j > i + 1)
 	{
-	    printf("Calling build_tree_postorder\n");
-	    build_tree_postorder(i, j, height + 1);
+	    printf("Building new subtree:\n");
+	    build_tree_postorder(i, j);
 	}
 
-	i = j;	
+	i = j;
     }
+	
     // Children are not computed yet but should be checked here
 
-    // Comparison of subtrees here? May not need to be sorted
+    // Comparison of subtrees here? May not need to be sorted?
     printf("Postorder call complete\n");      
 }
 
@@ -296,6 +315,10 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
         perror("malloc");
         exit(1);
     }
+
+	printf("Start: %d\n", start);
+	printf("End: %d\n", end);
+	printf("Offset: %d\n", offset);
 
     /* Pass 2: Fill direct children and build subtrees. */
     int n_children = 0;
@@ -404,20 +427,21 @@ int main() {
     
     status("Displaying diagnostic information.");
     dispEntries(entries, n_entries);
-    dispEntryDetail(entries, n_entries);
+    //dispEntryDetail(entries, n_entries);
 
-    //status("Sorting entries.");
+    status("Sorting entries.");
     //qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
- 
+    //dispEntryDetail(entries, n_entries); 
+
     status("Building tree.");
     if (entries[0].n_components == 0) {
         fprintf(stderr, "mysterious zero-length entry in table\n");
         exit(1);
     }
-    base_depth = entries[0].n_components;
+    base_depth = entries[0].n_components - 1;
     //build_tree_preorder(0, n_entries, 0);
 
-    build_tree_postorder(0, n_entries, 0);
+    build_tree_postorder(0, n_entries);
 
     status("After build_tree_preorder.");
     dispEntryDetail(entries, n_entries);
