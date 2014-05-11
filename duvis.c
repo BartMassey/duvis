@@ -223,7 +223,11 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
     
     // Prepare for calculation
     struct entry *e = &entries[start];
-    
+    uint32_t depth = e->n_components - 1;
+
+    e->depth = depth;  
+    printf("e is: %s with depth: %d\n", e->components[depth], depth);  
+
     /*
      * Need to allocate memory for children but not currently
      * sure how to accomplish this when coming from the other
@@ -231,17 +235,23 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
      */
 
     //int n_children = 0;
-    int i = start + 1;
+    uint32_t i = start + 1;
     uint32_t offset = 0;
 
     while (i < end) {
-	int j = i + 1;
+	uint32_t j = i + 1;
+
+	// Correct the depth for the ith entry
+	if(entries[i].n_components == 1)
+	    entries[i].depth = 0;
+	else
+	    entries[i].depth = entries[i].n_components - 1;
 
 	// Create a new function for finding the correct offset index
 	if(entries[i].n_components < entries[j].n_components)
 		offset = entries[i].n_components - 1;
 	else if(entries[i].n_components == entries[j].n_components)
-		offset = entries[j].n_components - 1;
+	    	offset = entries[j].n_components - 1;
 	else if(entries[i].n_components > entries[j].n_components)
 		offset = entries[j].n_components - 1;
 
@@ -316,10 +326,6 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
         exit(1);
     }
 
-	printf("Start: %d\n", start);
-	printf("End: %d\n", end);
-	printf("Offset: %d\n", offset);
-
     /* Pass 2: Fill direct children and build subtrees. */
     int n_children = 0;
     int i = start + 1;
@@ -367,6 +373,18 @@ void show_entries(struct entry *e) {
     }
     for (uint32_t i = 0; i < e->n_children; i++)
         show_entries(e->children[i]);
+}
+
+void showEntriesNew(struct entry e[], int n) {
+    uint32_t depth = 0;
+
+    for(uint32_t i = 0; i < n; i++)
+    {
+	depth = e[i].depth;
+	indent(depth);
+
+	printf("%s %"PRIu64"\n", e[i].components[depth], e[i].size);
+    } 
 }
 
 void status(char *msg) {
@@ -426,7 +444,7 @@ int main() {
         return 0;
     
     status("Displaying diagnostic information.");
-    dispEntries(entries, n_entries);
+    //dispEntries(entries, n_entries);
     //dispEntryDetail(entries, n_entries);
 
     status("Sorting entries.");
@@ -444,10 +462,11 @@ int main() {
     build_tree_postorder(0, n_entries);
 
     status("After build_tree_preorder.");
-    dispEntryDetail(entries, n_entries);
+    //dispEntryDetail(entries, n_entries);
 
     status("Rendering tree.");
-    show_entries(&entries[0]);
+    //show_entries(&entries[0]);
+    showEntriesNew(entries, n_entries);
 
     return(0);
 }
