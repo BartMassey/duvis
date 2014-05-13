@@ -243,13 +243,39 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
     struct entry *e = &entries[start];
     uint32_t depth = e->n_components - 1;
 
-    e->depth = depth;  
-    
-    /*
-     * Need to allocate memory for children but not currently
-     * sure how to accomplish this when coming from the other
-     * direction? May need to adjust function call... 
-     */
+    e->depth = depth;
+
+    // Allocating Memory and Populate Direct Children 
+    for(uint32_t i = end; i > start; i--)
+    {
+	uint32_t count = 0;
+	uint32_t offset = entries[i].n_components - 1;
+
+	for(uint32_t j = i - 1; j > start; j--)
+	{
+            if(entries[i].n_components == (entries[j].n_components - 1)
+		&&  !strcmp(entries[i].components[offset], entries[j].components[offset]))
+	    {
+	        entries[i].n_children = ++count;
+	    }
+        }
+
+	// Allocate memory
+        entries[i].children = malloc(entries[i].n_children * sizeof(entries[i].children[0]));
+
+	// Populate Direct Children
+	for(uint32_t j = i - 1; j > start; j--)
+	{
+	    uint32_t k = 0;
+
+	    if(entries[i].n_components == (entries[j].n_components - 1)
+		&& !strcmp(entries[i].components[offset], entries[j].components[offset]))
+	    {
+		entries[i].children[k] = &entries[j];
+		k++; 
+	    }
+	}
+    }
 
     //int n_children = 0;
     uint32_t i = start + 1;
@@ -444,7 +470,12 @@ int main() {
     base_depth = entries[0].n_components - 1;
     //build_tree_preorder(0, n_entries, 0);
 
-    build_tree_postorder(0, n_entries);
+    build_tree_postorder(0, n_entries - 1);
+
+    for(int i = 0; i < n_entries; i++)
+    {
+	printf("%s, #children: %d\n", entries[i].components[entries[i].n_components - 1], entries[i].n_children);
+    }
 
     status("After build_tree_preorder.");
     //dispEntryDetail(entries, n_entries);
