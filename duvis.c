@@ -214,6 +214,24 @@ int compare_subtrees(const void *p1, const void * p2) {
 }
 
 /*
+ *  A helper function that finds the correct offset index for
+ *  build_tree_postorder()
+ */
+int findOffset(int n1, int n2)
+{
+    uint32_t offset = 0;
+
+    if(n1 < n2) // next is a new path
+	offset = (n1 -1);
+    else if(n1 == n2) // next is a peer
+	offset = (n2 - 1);
+    else // n1 > n2 - next is a child
+	offset = (n2 - 1);
+
+    return offset;
+}
+
+/*
  * Build a tree in the entry structure. This implementation
  * utilizes post-order traversal and takes advantage of the
  * existing du sorted output - assumes user wants du output
@@ -226,8 +244,7 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
     uint32_t depth = e->n_components - 1;
 
     e->depth = depth;  
-    printf("e is: %s with depth: %d\n", e->components[depth], depth);  
-
+    
     /*
      * Need to allocate memory for children but not currently
      * sure how to accomplish this when coming from the other
@@ -248,58 +265,31 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
 	    entries[i].depth = entries[i].n_components - 1;
 
 	// Create a new function for finding the correct offset index
-	if(entries[i].n_components < entries[j].n_components)
-		offset = entries[i].n_components - 1;
-	else if(entries[i].n_components == entries[j].n_components)
-	    	offset = entries[j].n_components - 1;
-	else if(entries[i].n_components > entries[j].n_components)
-		offset = entries[j].n_components - 1;
+	offset = findOffset(entries[i].n_components, entries[j].n_components);
 
 	// Are we near the end?
 	if(entries[j].n_components <= 1 || entries[i].n_components <= 1)	
 		offset = 0;
-
-	// DEBUGGING
-	printf("Offset: %d\n", offset);
-
-	if(j < end) {
-	printf("Entered first while loop\n");
-	printf("j = %d\n", j);
-	printf("end = %d\n", end);
-	printf("[i].n_components = %d\n", entries[i].n_components);
-	printf("[j].n_components = %d\n", entries[j].n_components);
-	printf("[i].component = %s\n", entries[i].components[offset]);
-	printf("[j].component = %s\n", entries[j].components[offset]);
-	}
-
-	// May need an additional condition 	
-	while (j < end && entries[j].n_components <= entries[i].n_components && entries[j].n_components != 1 && !strcmp(entries[i].components[offset], entries[j].components[offset])) {
-	    printf("Incrementing j\n");
+ 	
+	while (j < end && entries[j].n_components <= entries[i].n_components 
+		       && entries[j].n_components != 1 
+		       && !strcmp(entries[i].components[offset], 
+				  entries[j].components[offset])) 
+	{
 	    j++;
-	    printf("%d\n",j);
 
-	    // Create a new function to find the correct offset index
-	    if(entries[i].n_components < entries[j].n_components)
-		offset = entries[i].n_components - 1;
-	    else if(entries[i].n_components == entries[j].n_components)
-		offset = entries[j].n_components - 1;
-	    else if(entries[i].n_components > entries[j].n_components)
-		offset = entries[j].n_components - 1;
+	    offset = findOffset(entries[i].n_components, entries[j].n_components);
 	}
 
+	// Start building a new subtree
 	if (j > i + 1)
 	{
-	    printf("Building new subtree:\n");
 	    build_tree_postorder(i, j);
 	}
 
 	i = j;
     }
-	
-    // Children are not computed yet but should be checked here
-
-    // Comparison of subtrees here? May not need to be sorted?
-    printf("Postorder call complete\n");      
+      
 }
 
 /*
@@ -443,13 +433,8 @@ int main() {
     if (n_entries == 0)
         return 0;
     
-    status("Displaying diagnostic information.");
-    //dispEntries(entries, n_entries);
-    //dispEntryDetail(entries, n_entries);
-
-    status("Sorting entries.");
+    //status("Sorting entries.");
     //qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-    //dispEntryDetail(entries, n_entries); 
 
     status("Building tree.");
     if (entries[0].n_components == 0) {
