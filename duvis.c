@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
 /* Number of entries to consider "largest small". */
 #define DU_INIT_ENTRIES_SIZE (128 * 1024)
@@ -309,9 +310,7 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
 
 	// Start building a new subtree
 	if (j > i + 1)
-	{
 	    build_tree_postorder(i, j);
-	}
 
 	i = j;
     }
@@ -453,36 +452,82 @@ void dispEntries(struct entry e[], int n) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
+
+    int c;
+    int pflag = 0, gflag = 0;
+
+    while((c = getopt(argc, argv, "pg")) != -1)
+    {
+	switch(c)
+	{
+	    case 'p':	// Enable pre-order sorting
+		pflag = 1;
+		break;
+	    case 'g':	// Enable GUI
+		gflag = 1;
+		break;
+	    case '?':	// Error handling
+	        fprintf(stderr, "Unknown option -%c\n", optopt);
+		abort();
+	    default:	// Something really weird happened
+		abort();
+	}
+    }
+
+    // Read in data from du
     status("Parsing du file.");
     read_entries(stdin);
+
     if (n_entries == 0)
-        return 0;
-    
-    //status("Sorting entries.");
-    //qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
+	return 0;
 
-    status("Building tree.");
-    if (entries[0].n_components == 0) {
-        fprintf(stderr, "mysterious zero-length entry in table\n");
-        exit(1);
-    }
-    base_depth = entries[0].n_components - 1;
-    //build_tree_preorder(0, n_entries, 0);
-
-    build_tree_postorder(0, n_entries - 1);
-
-    for(int i = 0; i < n_entries; i++)
+    // default: post order
+    if(pflag == 0)
     {
-	printf("%s, #children: %d\n", entries[i].components[entries[i].n_components - 1], entries[i].n_children);
+	status("Building tree: Post-Order.");
+	build_tree_postorder(0, n_entries - 1);
+
+	status("Rendering tree.");
+	// display ascii or gui
+	if(gflag == 0)
+	{
+	    showEntriesNew(entries, n_entries);
+	}
+	else if(gflag == 1)
+	{
+	    printf("Not implemented yet\n");
+	    showEntriesNew(entries, n_entries);
+	}
     }
+    // pre order
+    else if(pflag == 1)
+    {
+	status("Sorting entries.");
+	qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
 
-    status("After build_tree_preorder.");
-    //dispEntryDetail(entries, n_entries);
+	status("Building tree: Pre-Order.");
+	if(entries[0].n_components == 0)
+        {
+	    fprintf(stderr, "Mysterious zero-length entry in table.\n");
+	    exit(1);
+        }
 
-    status("Rendering tree.");
-    //show_entries(&entries[0]);
-    showEntriesNew(entries, n_entries);
+	base_depth = entries[0].n_components;
+	build_tree_preorder(0, n_entries, 0);
 
-    return(0);
+	status("Rendering tree.");
+	// display ascii or gui
+	if(gflag == 0)
+	{
+	    show_entries(&entries[0]);	
+	}
+	else if(gflag == 1)
+	{
+	    printf("Not implemented yet\n");
+	    show_entries(&entries[0]);
+	}
+    }
+    
+    return(0); 
 }
