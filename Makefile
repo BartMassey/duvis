@@ -7,9 +7,10 @@
 CC = gcc
 CDEBUG = -O4
 CFLAGS = -std=c99 -Wall $(CDEBUG)
+GTKFLAGS = `pkg-config --cflags --libs gtk+-3.0`
 
-duvis: duvis.o
-	$(CC) $(CFLAGS) -o duvis duvis.o
+duvis: 
+	$(CC) duvis.c $(GTKFLAGS) $(CFLAGS) -o duvis 
 
 clean:
 	-rm -f duvis duvis.o
