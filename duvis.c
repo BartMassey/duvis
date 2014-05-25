@@ -457,29 +457,66 @@ void dispEntries(struct entry e[], int n) {
 	}
 }
 
+static void draw_node(cairo_t *cr, struct entry *e, int x, int y, int width, int height) {
+
+    /* Length of 2**64 - 1, +1 for null */
+    char sizeStr[21];
+
+    int txtX = width / 4; 
+    int txtY = height / 2;
+
+    /* Copy uint64_t into char buffer */
+    sprintf(sizeStr, "%" PRIu64, e->size);
+
+    /* Draw the rectangle container */
+    cairo_rectangle(cr, x, y, width, height);
+    cairo_stroke(cr);
+
+    /* Draw the label */
+    cairo_move_to(cr, txtX, txtY);
+    cairo_show_text(cr, e->components[0]);
+    cairo_show_text(cr, " (");
+    cairo_show_text(cr, sizeStr);
+    cairo_show_text(cr, ")");
+}
+
 /* Perform the actual drawing of the entries */
-static void do_drawing(cairo_t *cr) {
+static void do_drawing(GtkWidget *widget, cairo_t *cr) {
+
+    /* How much space was the window actually allocated? */
+    GtkAllocation *allocation = g_new0 (GtkAllocation, 1);
+    gtk_widget_get_allocation(GTK_WIDGET(widget), allocation);
+
+    /* Make sure that cairo is aware of the dimensions */
+    double width = allocation->width;
+    double height = allocation->height;
+
+    /* Allocation no longer needed */
+    g_free(allocation);
    
+    /* Set cairo drawing variables */
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_select_font_face(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 20);
-
-    char sizeStr[21];
-    sprintf(sizeStr, "%" PRIu64, entries[0].size);
-
-    cairo_move_to(cr, 25, 128);
-    cairo_show_text(cr, entries[0].components[0]);
-    cairo_move_to(cr, 30, 128);
-    cairo_show_text(cr, " ");
-    cairo_show_text(cr, sizeStr);
+    cairo_set_line_width(cr, 1);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
+    
+    /* Begin drawing the nodes */
+    draw_node(cr, &entries[0], 0, 0, width, height); 
 }
 
 /* Call up the cairo functionality */
 static gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    
-    do_drawing(cr);
+   
+    do_drawing(widget, cr);
 
     return FALSE;
+}
+
+/* Determine the size of the window */
+void getSize(GtkWidget *widget, GtkAllocation *allocation, void *data) {
+
+    printf("width = %d, height = %d\n", allocation->width, allocation->height);
 }
 
 /* Initialize the window, drawing surface, and functionality */
@@ -499,6 +536,7 @@ int gui(int argv, char **argc) {
     /* Functionality handling - drawing and exiting */
     g_signal_connect(G_OBJECT(darea), "draw", G_CALLBACK(on_draw_event), NULL);
     g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(G_OBJECT(darea), "size-allocate", G_CALLBACK(getSize), NULL);
 
     /* Default window settings */
     gtk_window_set_title(GTK_WINDOW(window), "Duvis");
