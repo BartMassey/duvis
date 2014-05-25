@@ -21,10 +21,6 @@
 /* For GUI - with backend */
 #include <cairo.h>
 #include <gtk/gtk.h>
-#include <wchar.h>
-
-/* Length of wchar */
-#define SIZE 10
 
 /* Number of entries to consider "largest small". */
 #define DU_INIT_ENTRIES_SIZE (128 * 1024)
