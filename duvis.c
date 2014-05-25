@@ -464,8 +464,14 @@ static void do_drawing(cairo_t *cr) {
     cairo_select_font_face(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 20);
 
+    char sizeStr[21];
+    sprintf(sizeStr, "%" PRIu64, entries[0].size);
+
     cairo_move_to(cr, 25, 128);
-    cairo_show_text(cr, entries[0].components[1]);
+    cairo_show_text(cr, entries[0].components[0]);
+    cairo_move_to(cr, 30, 128);
+    cairo_show_text(cr, " ");
+    cairo_show_text(cr, sizeStr);
 }
 
 /* Call up the cairo functionality */
