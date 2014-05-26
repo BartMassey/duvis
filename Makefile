@@ -4,13 +4,15 @@
 # distribution of this software for license terms.
 
 
+NAME = duvis
+SRCS = duvis.c
 CC = gcc
 CDEBUG = -O4
-CFLAGS = -std=c99 -Wall $(CDEBUG)
-GTKFLAGS = `pkg-config --cflags --libs gtk+-3.0`
+CFLAGS = -std=c99 -Wall $(CDEBUG) 
+GTKFLAGS = -export-dynamic `pkg-config --cflags --libs gtk+-3.0`
 
-duvis: 
-	$(CC) duvis.c $(GTKFLAGS) $(CFLAGS) -o duvis 
+duvis:	$(SRCS)	
+	$(CC) $(CFLAGS) $(SRCS) $(GTKFLAGS) -o $(NAME) 
 
 clean:
-	-rm -f duvis duvis.o
+	-rm -f duvis 
