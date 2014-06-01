@@ -19,8 +19,8 @@
 #include <getopt.h>
 
 /* For GUI - with backend */
-#include <cairo.h>
-#include <gtk/gtk.h>
+//#include <cairo.h>
+//#include <gtk/gtk.h>
 
 /* Number of entries to consider "largest small". */
 #define DU_INIT_ENTRIES_SIZE (128 * 1024)
@@ -238,6 +238,43 @@ int findOffset(int n1, int n2)
     return offset;
 }
 
+void init_postorder(uint32_t start, uint32_t end) {
+
+    for (uint32_t i = end; i > start; i--)
+    {
+        uint32_t count = 0;
+        uint32_t offset = entries[i].n_components - 1;
+
+        for(uint32_t j = i - 1; j > start; j--)
+        {
+            if(entries[i].n_components == (entries[j].n_components - 1)
+                && !strcmp(entries[i].components[offset], entries[j].components[offset]))
+            {
+                entries[i].n_children = ++count;
+            }
+
+        }
+
+        entries[i].children = malloc(entries[i].n_children * sizeof(entries[i].children[0]));
+    }
+
+    for(uint32_t i = end; i > start; i--)
+    {
+        uint32_t k = 0;
+        uint32_t offset = entries[i].n_components - 1;
+
+        for(uint32_t j = i - 1; j > start; j--)
+        {
+            if(entries[i].n_components == (entries[j].n_components - 1)
+                && !strcmp(entries[i].components[offset], entries[j].components[offset]))
+            {
+                entries[i].children[k] = &entries[j];
+                k++;
+            }
+        }
+    }
+}
+
 /*
  * Build a tree in the entry structure. This implementation
  * utilizes post-order traversal and takes advantage of the
@@ -251,38 +288,6 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
     uint32_t depth = e->n_components - 1;
 
     e->depth = depth;
-
-    // Allocating Memory and Populate Direct Children 
-    for(uint32_t i = end; i > start; i--)
-    {
-	uint32_t count = 0;
-	uint32_t offset = entries[i].n_components - 1;
-
-	for(uint32_t j = i - 1; j > start; j--)
-	{
-            if(entries[i].n_components == (entries[j].n_components - 1)
-		&&  !strcmp(entries[i].components[offset], entries[j].components[offset]))
-	    {
-	        entries[i].n_children = ++count;
-	    }
-        }
-
-	// Allocate memory
-        entries[i].children = malloc(entries[i].n_children * sizeof(entries[i].children[0]));
-
-	// Populate Direct Children
-	for(uint32_t j = i - 1; j > start; j--)
-	{
-	    uint32_t k = 0;
-
-	    if(entries[i].n_components == (entries[j].n_components - 1)
-		&& !strcmp(entries[i].components[offset], entries[j].components[offset]))
-	    {
-		entries[i].children[k] = &entries[j];
-		k++; 
-	    }
-	}
-    }
 
     //int n_children = 0;
     uint32_t i = start + 1;
@@ -584,6 +589,7 @@ int main(int argc, char **argv) {
     if(pflag == 0)
     {
 	status("Building tree: Post-Order.");
+        init_postorder(0, n_entries - 1);
 	build_tree_postorder(0, n_entries - 1);
 
 	status("Rendering tree.");
