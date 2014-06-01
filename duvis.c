@@ -19,8 +19,8 @@
 #include <getopt.h>
 
 /* For GUI - with backend */
-//#include <cairo.h>
-//#include <gtk/gtk.h>
+#include <cairo.h>
+#include <gtk/gtk.h>
 
 /* Number of entries to consider "largest small". */
 #define DU_INIT_ENTRIES_SIZE (128 * 1024)
@@ -228,10 +228,11 @@ int findOffset(int n1, int n2)
 {
     uint32_t offset = 0;
 
+    if(n1 <= 1 || n2 <= 1)
+        return 0;
+
     if(n1 < n2) // next is a new path
 	offset = (n1 -1);
-    else if(n1 == n2) // next is a peer
-	offset = (n2 - 1);
     else // n1 > n2 - next is a child
 	offset = (n2 - 1);
 
@@ -240,38 +241,40 @@ int findOffset(int n1, int n2)
 
 void init_postorder(uint32_t start, uint32_t end) {
 
-    for (uint32_t i = end; i > start; i--)
+    uint32_t i = end + 1;
+    uint32_t j = end;
+    uint32_t count = 0;
+    uint32_t offset = 0;
+
+    while(--i) 
     {
-        uint32_t count = 0;
-        uint32_t offset = entries[i].n_components - 1;
+        count = 0;
+        j = i;
 
-        for(uint32_t j = i - 1; j > start; j--)
-        {
-            if(entries[i].n_components == (entries[j].n_components - 1)
-                && !strcmp(entries[i].components[offset], entries[j].components[offset]))
-            {
+        while(--j)
+            if(entries[i].n_components == (entries[j].n_components - 1)) 
                 entries[i].n_children = ++count;
-            }
-
-        }
 
         entries[i].children = malloc(entries[i].n_children * sizeof(entries[i].children[0]));
     }
 
-    for(uint32_t i = end; i > start; i--)
+    i = end + 1;
+    
+    while(--i)
     {
-        uint32_t k = 0;
-        uint32_t offset = entries[i].n_components - 1;
+        count = 0;
+        offset = entries[i].n_components - 1;
+        j = i;
 
-        for(uint32_t j = i - 1; j > start; j--)
-        {
+        entries[i].depth = entries[i].n_components - 1;
+
+        while(--j)
             if(entries[i].n_components == (entries[j].n_components - 1)
                 && !strcmp(entries[i].components[offset], entries[j].components[offset]))
             {
-                entries[i].children[k] = &entries[j];
-                k++;
+                entries[i].children[count] = &entries[j];
+                count++;
             }
-        }
     }
 }
 
@@ -282,35 +285,16 @@ void init_postorder(uint32_t start, uint32_t end) {
  */
  
 void build_tree_postorder(uint32_t start, uint32_t end) {
-    
-    // Prepare for calculation
-    struct entry *e = &entries[start];
-    uint32_t depth = e->n_components - 1;
 
-    e->depth = depth;
-
-    //int n_children = 0;
     uint32_t i = start + 1;
     uint32_t offset = 0;
+    uint32_t j = i + 1;
 
     while (i < end) {
-	uint32_t j = i + 1;
 
-	// Correct the depth for the ith entry
-	if(entries[i].n_components == 1)
-	    entries[i].depth = 0;
-	else
-	    entries[i].depth = entries[i].n_components - 1;
-
-	// Create a new function for finding the correct offset index
 	offset = findOffset(entries[i].n_components, entries[j].n_components);
-
-	// Are we near the end?
-	if(entries[j].n_components <= 1 || entries[i].n_components <= 1)	
-		offset = 0;
  	
 	while (j < end && entries[j].n_components <= entries[i].n_components 
-		       && entries[j].n_components != 1 
 		       && !strcmp(entries[i].components[offset], 
 				  entries[j].components[offset])) 
 	{
@@ -325,7 +309,6 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
 
 	i = j;
     }
-      
 }
 
 /*
@@ -590,7 +573,7 @@ int main(int argc, char **argv) {
     {
 	status("Building tree: Post-Order.");
         init_postorder(0, n_entries - 1);
-	build_tree_postorder(0, n_entries - 1);
+	//build_tree_postorder(0, n_entries - 1);
 
 	status("Rendering tree.");
 	// display ascii or gui
