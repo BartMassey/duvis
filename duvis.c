@@ -6,7 +6,7 @@
  */ 
    
 /* ASCII xdu replacement with reasonable performance. */
-
+ 
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -239,75 +239,55 @@ int findOffset(int n1, int n2)
     return offset;
 }
 
-void init_postorder(uint32_t start, uint32_t end) {
-
-    uint32_t i = end + 1;
-    uint32_t j = end;
-    uint32_t count = 0;
-    uint32_t offset = 0;
-
-    while(--i) 
-    {
-        count = 0;
-        j = i;
-
-        while(--j)
-            if(entries[i].n_components == (entries[j].n_components - 1)) 
-                entries[i].n_children = ++count;
-
-        entries[i].children = malloc(entries[i].n_children * sizeof(entries[i].children[0]));
-    }
-
-    i = end + 1;
-    
-    while(--i)
-    {
-        count = 0;
-        offset = entries[i].n_components - 1;
-        j = i;
-
-        entries[i].depth = entries[i].n_components - 1;
-
-        while(--j)
-            if(entries[i].n_components == (entries[j].n_components - 1)
-                && !strcmp(entries[i].components[offset], entries[j].components[offset]))
-            {
-                entries[i].children[count] = &entries[j];
-                count++;
-            }
-    }
-}
-
 /*
  * Build a tree in the entry structure. This implementation
  * utilizes post-order traversal and takes advantage of the
  * existing du sorted output - assumes user wants du output
  */
  
-void build_tree_postorder(uint32_t start, uint32_t end) {
+void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
 
-    uint32_t i = start + 1;
-    uint32_t offset = 0;
-    uint32_t j = i + 1;
+    struct entry *e = &entries[end];
+    uint32_t offset = depth + base_depth;
 
-    while (i < end) {
+    if(e->n_components != offset) {
+        fprintf(stderr, "Index %d: unexpected entry\n", end);
+    }
 
-	offset = findOffset(entries[i].n_components, entries[j].n_components);
- 	
-	while (j < end && entries[j].n_components <= entries[i].n_components 
-		       && !strcmp(entries[i].components[offset], 
-				  entries[j].components[offset])) 
-	{
-	    j++;
+    e->depth = depth;
 
-	    offset = findOffset(entries[i].n_components, entries[j].n_components);
-	}
+    uint32_t i = end;
+
+    /* Count and allocate direct children */
+    while(--i)
+        if(entries[i].n_components == offset + 1 
+            && !strcmp(e->components[offset-1], entries[i].components[offset-1]))
+            e->n_children++;
+
+    e->children = malloc(e->n_children * sizeof(e->children[0]));
+
+    /* Fill direct children and build subtree */
+    int n_children = 0;
+    i = end;
+
+    while (--i > start) {
+
+        e->children[n_children++] = &entries[i];
+        entries[i].depth = depth + 1;
+
+        uint32_t j = i;
+
+        while (--j > start && entries[j].n_components > offset + 1
+                    && !strcmp(entries[i].components[offset], 
+                               entries[j].components[offset])) 
+        {
+        }
 
 	// Start building a new subtree
-	if (j > i + 1)
-	    build_tree_postorder(i, j);
+	if (i > j + 1)
+	    build_tree_postorder(j, i, depth + 1);
 
-	i = j;
+	i = j + 1;
     }
 }
 
@@ -316,6 +296,7 @@ void build_tree_postorder(uint32_t start, uint32_t end) {
  * is for monotonic malloc() usage, because efficiency.
  */
 void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
+    
     /* Set up for calculation. */
     struct entry *e = &entries[start];
     uint32_t offset = depth + base_depth;
@@ -386,13 +367,15 @@ void show_entries(struct entry *e) {
 
 void showEntriesNew(struct entry e[], int n) {
     uint32_t depth = 0;
+    uint32_t offset = 0;
 
     for(uint32_t i = 0; i < n; i++)
     {
 	depth = e[i].depth;
 	indent(depth);
+        offset = e[i].n_components - 1;
 
-	printf("%s %"PRIu64"\n", e[i].components[depth], e[i].size);
+	printf("%s %"PRIu64"\n", e[i].components[offset], e[i].size);
     } 
 }
 
@@ -406,24 +389,24 @@ void status(char *msg) {
  *  about the entries that have been read in from du.
  */
 void dispEntryDetail (struct entry e[], int n) { 
-	printf("Detail of Entries\n# of Entries: %d\n\n", n);
+    printf("Detail of Entries\n# of Entries: %d\n\n", n);
 
-	for(int i = 0; i < n; i++) {
-		printf("Index: %d\n", i);
-		printf("Size: %" PRIu64 "\n", e[i].size);	
-		printf("Depth: %d\n", e[i].depth);
-		printf("# Children: %d\n", e[i].n_children);
-		printf("# Components: %d\n", e[i].n_components);
-		printf("Components: \n");
+    for(int i = 0; i < n; i++) {
+        printf("Index: %d\n", i);
+        printf("Size: %" PRIu64 "\n", e[i].size);	
+        printf("Depth: %d\n", e[i].depth);
+        printf("# Children: %d\n", e[i].n_children);
+        printf("# Components: %d\n", e[i].n_components);
+        printf("Components: \n");
 
-		if(e[i].n_components) {
-			for(int j = 0; j < e[i].n_components; j++) {
-				printf("%s\n", e[i].components[j]);
-			}
-		}
+        if(e[i].n_components) {
+            for(int j = 0; j < e[i].n_components; j++) {
+                printf("%s\n", e[i].components[j]);
+            }
+        }
 
-		printf("\n");
-	}
+        printf("\n");
+    }
 }
 
 /*
@@ -432,17 +415,16 @@ void dispEntryDetail (struct entry e[], int n) {
  *  view. Includes information about the size.
  */ 
 void dispEntries(struct entry e[], int n) {
-	printf("Simple Entries\n# of Entries: %d\n\n", n);
+    printf("Simple Entries\n# of Entries: %d\n\n", n);
 
-	for(int i = 0; i < n; i++) {
-		if(e[i].n_components) {
-			for(int j = 0; j < e[i].n_components; j++) {
-				printf("%s/", e[i].components[j]);
-			}
-			
-			printf(" ,%" PRIu64 "\n", e[i].size);
-		}
-	}
+    for(int i = 0; i < n; i++) {
+        if(e[i].n_components) {
+            for(int j = 0; j < e[i].n_components; j++) {
+                printf("%s/", e[i].components[j]);
+                printf(" ,%" PRIu64 "\n", e[i].size);
+            }
+        }
+    }
 }
 
 static void draw_node(cairo_t *cr, struct entry *e, int x, int y, int width, int height) {
@@ -572,8 +554,9 @@ int main(int argc, char **argv) {
     if(pflag == 0)
     {
 	status("Building tree: Post-Order.");
-        init_postorder(0, n_entries - 1);
-	//build_tree_postorder(0, n_entries - 1);
+  
+        base_depth = entries[n_entries - 1].n_components;
+	build_tree_postorder(0, n_entries - 1, 0);
 
 	status("Rendering tree.");
 	// display ascii or gui

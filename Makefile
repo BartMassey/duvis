@@ -8,7 +8,7 @@ NAME = duvis
 SRCS = duvis.c
 CC = gcc
 CDEBUG = -O4
-CFLAGS = -std=c99 -Wall $(CDEBUG) 
+CFLAGS = -std=c99 -Wall -g $(CDEBUG) 
 GTKFLAGS = -export-dynamic `pkg-config --cflags --libs gtk+-3.0`
 
 duvis:	$(SRCS)	
