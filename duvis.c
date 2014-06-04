@@ -238,25 +238,30 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
     /* Count and allocate direct children */
     for (uint32_t i = start; i < end - 1; i++)
         if(entries[i].n_components == offset + 1 &&
-           !strcmp(e->components[offset-1], entries[i].components[offset-1]))
+           !strcmp(e->components[offset - 1],
+                   entries[i].components[offset - 1]))
             e->n_children++;
     e->children = malloc(e->n_children * sizeof(e->children[0]));
 
     /* Fill direct children and build subtree */
     int n_children = 0;
-    uint32_t j;   /* start of children ending at k */
+    uint32_t j;   /* Start of children ending at k */
     for (uint32_t k = end; k > start; k = j) {
+        assert(n_children < e->n_children);
         e->children[n_children++] = &entries[k - 1];
         entries[k - 1].depth = depth + 1;
 
-        for (j = k - 2; j >= start; --j)
-            if (entries[j].n_components <= offset + 1 ||
-                strcmp(entries[k - 1].components[offset], 
-                       entries[j].components[offset])) 
+        /* Set j to the starting position of the children */
+        for (j = k - 2; j >= start; --j) {
+            if(entries[j].n_components != offset + 1 ||
+               strcmp(entries[k - 1].components[offset - 1],
+                      entries[j].components[offset - 1])) {
+                j++;
                 break;
-        j++;
+            }
+        }
 
-	// Start building a new subtree
+	/* Start building a new subtree */
 	if (j < k - 1)
 	    build_tree_postorder(j, k, depth + 1);
     }
