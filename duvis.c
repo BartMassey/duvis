@@ -229,6 +229,7 @@ int compare_subtrees(const void *p1, const void * p2) {
 void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
     struct entry *e = &entries[end - 1];
     uint32_t offset = depth + base_depth;
+    assert(offset == e->n_components);
 
     /* Set up some fields of e */
     if(e->n_components != offset)
@@ -236,35 +237,35 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
     e->depth = depth;
 
     /* Count and allocate direct children */
-    for (uint32_t i = start; i < end - 1; i++)
-        if(entries[i].n_components == offset + 1 &&
-           !strcmp(e->components[offset - 1],
-                   entries[i].components[offset - 1]))
+    for (uint32_t i = start; i < end - 1; i++) {
+        if(entries[i].n_components == offset + 1) {
+            assert(!strcmp(e->components[offset - 1],
+                           entries[i].components[offset - 1]));
             e->n_children++;
+        }
+    }
     e->children = malloc(e->n_children * sizeof(e->children[0]));
 
     /* Fill direct children and build subtree */
     int n_children = 0;
-    uint32_t j;   /* Start of children ending at k */
-    for (uint32_t k = end; k > start; k = j) {
+    uint32_t k;   /* End of grandchildren starting at j */
+    for (uint32_t j = start; j < end - 1; j = k) {
+        /* Collect all the children of this child */
+        for (k = j + 1; k < end; k++)
+            if (entries[k - 1].n_components != offset + 2 ||
+                strcmp(entries[j].components[offset],
+                       entries[k - 1].components[offset]))
+                break;
+
+        assert(entries[k - 1].n_components == offset + 1);
         assert(n_children < e->n_children);
         e->children[n_children++] = &entries[k - 1];
-        entries[k - 1].depth = depth + 1;
 
-        /* Set j to the starting position of the children */
-        for (j = k - 2; j >= start; --j) {
-            if(entries[j].n_components != offset + 1 ||
-               strcmp(entries[k - 1].components[offset - 1],
-                      entries[j].components[offset - 1])) {
-                j++;
-                break;
-            }
-        }
-
-	/* Start building a new subtree */
-	if (j < k - 1)
-	    build_tree_postorder(j, k, depth + 1);
+        /* If this child has children, build that tree */
+        if (j < k - 1)
+            build_tree_postorder(j, k, depth + 1);
     }
+    assert(n_children == e->n_children);
 }
 
 /*
