@@ -220,45 +220,23 @@ int compare_subtrees(const void *p1, const void * p2) {
     assert(0);
 }
 
-/*
- *  A helper function that finds the correct offset index for
- *  build_tree_postorder()
- */
-int findOffset(int n1, int n2)
-{
-    uint32_t offset = 0;
-
-    if(n1 <= 1 || n2 <= 1)
-        return 0;
-
-    if(n1 < n2) // next is a new path
-	offset = (n1 -1);
-    else // n1 > n2 - next is a child
-	offset = (n2 - 1);
-
-    return offset;
-}
 
 /*
  * Build a tree in the entry structure. This implementation
  * utilizes post-order traversal and takes advantage of the
  * existing du sorted output - assumes user wants du output
  */
- 
 void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
-
     struct entry *e = &entries[end];
     uint32_t offset = depth + base_depth;
 
-    if(e->n_components != offset) {
+    /* Set up some fields of e */
+    if(e->n_components != offset)
         fprintf(stderr, "Index %d: unexpected entry\n", end);
-    }
-
     e->depth = depth;
 
-    uint32_t i = end;
-
     /* Count and allocate direct children */
+    uint32_t i = end;
     while(--i)
         if(entries[i].n_components == offset + 1 
             && !strcmp(e->components[offset-1], entries[i].components[offset-1]))
