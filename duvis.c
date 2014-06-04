@@ -227,45 +227,38 @@ int compare_subtrees(const void *p1, const void * p2) {
  * existing du sorted output - assumes user wants du output
  */
 void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
-    struct entry *e = &entries[end];
+    struct entry *e = &entries[end - 1];
     uint32_t offset = depth + base_depth;
 
     /* Set up some fields of e */
     if(e->n_components != offset)
-        fprintf(stderr, "Index %d: unexpected entry\n", end);
+        fprintf(stderr, "Index %d: unexpected entry\n", end - 1);
     e->depth = depth;
 
     /* Count and allocate direct children */
-    uint32_t i = end;
-    while(--i)
-        if(entries[i].n_components == offset + 1 
-            && !strcmp(e->components[offset-1], entries[i].components[offset-1]))
+    for (uint32_t i = start; i < end - 1; i++)
+        if(entries[i].n_components == offset + 1 &&
+           !strcmp(e->components[offset-1], entries[i].components[offset-1]))
             e->n_children++;
-
     e->children = malloc(e->n_children * sizeof(e->children[0]));
 
     /* Fill direct children and build subtree */
     int n_children = 0;
-    i = end;
+    uint32_t j;   /* start of children ending at k */
+    for (uint32_t k = end; k > start; k = j) {
+        e->children[n_children++] = &entries[k - 1];
+        entries[k - 1].depth = depth + 1;
 
-    while (--i > start) {
-
-        e->children[n_children++] = &entries[i];
-        entries[i].depth = depth + 1;
-
-        uint32_t j = i;
-
-        while (--j > start && entries[j].n_components > offset + 1
-                    && !strcmp(entries[i].components[offset], 
-                               entries[j].components[offset])) 
-        {
-        }
+        for (j = k - 2; j >= start; --j)
+            if (entries[j].n_components <= offset + 1 ||
+                strcmp(entries[k - 1].components[offset], 
+                       entries[j].components[offset])) 
+                break;
+        j++;
 
 	// Start building a new subtree
-	if (i > j + 1)
-	    build_tree_postorder(j, i, depth + 1);
-
-	i = j + 1;
+	if (j < k - 1)
+	    build_tree_postorder(j, k, depth + 1);
     }
 }
 
@@ -534,7 +527,7 @@ int main(int argc, char **argv) {
 	status("Building tree: Post-Order.");
   
         base_depth = entries[n_entries - 1].n_components;
-	build_tree_postorder(0, n_entries - 1, 0);
+	build_tree_postorder(0, n_entries, 0);
 
 	status("Rendering tree.");
 	// display ascii or gui
