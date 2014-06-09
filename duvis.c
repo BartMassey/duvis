@@ -122,7 +122,7 @@ void read_entries(FILE *f) {
         }
         /* Parse the size field. */
         *index++ = '\0';
-        int n_scanned = sscanf(path, "%" PRIu64, &entry->size);  //Should be: PRIu64
+        int n_scanned = sscanf(path, "%" PRIu64, &entry->size);
         if (n_scanned != 1) {
             fprintf(stderr, "line %d: size parse failure\n", line_number);
             exit(1);
@@ -261,6 +261,8 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
         if (entries[i].n_components == offset + 1 &&
             !strcmp(e->components[offset - 1],
                     entries[i].components[offset - 1])) {
+            entries[i].depth = depth + 1;
+            entries[i].n_children = 0;
             e->children[n_children++] = &entries[i];
             /* If this child has children, build that tree */
             if (n_grandchildren > 0)
@@ -325,9 +327,6 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
         i = j;
     }
     assert(n_children == e->n_children);
-    /* Pass 3: Sort the children. Should this be here or in display? */
-    qsort(e->children, e->n_children, sizeof(e->children[0]),
-          compare_subtrees);
 }
 
 void indent(uint32_t depth) {
@@ -348,11 +347,13 @@ void show_entries(struct entry *e) {
         printf("%s %"PRIu64"\n",
                e->components[e->n_components - 1], e->size);
     }
+    qsort(e->children, e->n_children, sizeof(e->children[0]),
+          compare_subtrees);
     for (uint32_t i = 0; i < e->n_children; i++)
         show_entries(e->children[i]);
 }
 
-void showEntriesNew(struct entry e[], int n) {
+void show_entries_raw(struct entry e[], int n) {
     uint32_t depth = 0;
     uint32_t offset = 0;
 
@@ -510,9 +511,9 @@ int gui(int argv, char **argc) {
 int main(int argc, char **argv) {
 
     int c;
-    int pflag = 0, gflag = 0;
+    int pflag = 0, gflag = 0, rflag = 0;
 
-    while((c = getopt(argc, argv, "pg")) != -1)
+    while((c = getopt(argc, argv, "pgr")) != -1)
     {
 	switch(c)
 	{
@@ -521,6 +522,9 @@ int main(int argc, char **argv) {
 		break;
 	    case 'g':	// Enable GUI
 		gflag = 1;
+		break;
+	    case 'r':	// Enable GUI
+		rflag = 1;
 		break;
 	    case '?':	// Error handling
 	        fprintf(stderr, "Unknown option -%c\n", optopt);
@@ -540,48 +544,35 @@ int main(int argc, char **argv) {
     // default: post order
     if(pflag == 0)
     {
-	status("Building tree: Post-Order.");
-  
-        base_depth = entries[n_entries - 1].n_components;
-	build_tree_postorder(0, n_entries, 0);
-
-	status("Rendering tree.");
-	// display ascii or gui
-	if(gflag == 0)
-	{
-	    showEntriesNew(entries, n_entries);
-	}
-	else if(gflag == 1)
-	{
-	    gui(argc, argv);
-	}
     }
     // pre order
-    else if(pflag == 1)
-    {
+    if(pflag) {
 	status("Sorting entries.");
 	qsort(entries, n_entries, sizeof(entries[0]), compare_entries);
-
-	status("Building tree: Pre-Order.");
-	if(entries[0].n_components == 0)
-        {
+	if(entries[0].n_components == 0) {
 	    fprintf(stderr, "Mysterious zero-length entry in table.\n");
 	    exit(1);
         }
 
+	status("Building tree (preorder).");
 	base_depth = entries[0].n_components;
 	build_tree_preorder(0, n_entries, 0);
+    } else {
+	status("Building tree (postorder).");
+        base_depth = entries[n_entries - 1].n_components;
+	build_tree_postorder(0, n_entries, 0);
+    }
 
-	status("Rendering tree.");
-	// display ascii or gui
-	if(gflag == 0)
-	{
-	    show_entries(&entries[0]);	
-	}
-	else if(gflag == 1)
-	{
-	    gui(argc, argv);
-	}
+    status("Rendering tree.");
+    if (gflag) {
+        gui(argc, argv);
+    } else if (rflag) {
+        show_entries_raw(entries, n_entries);
+    } else {
+        if (pflag)
+            show_entries(&entries[0]);
+        else
+            show_entries(&entries[n_entries - 1]);
     }
     
     return(0); 
