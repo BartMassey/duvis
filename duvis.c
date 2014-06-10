@@ -46,7 +46,21 @@ int n_entries = 0;
 int max_entries = 0;
 struct entry *entries = 0;
 
-void read_entries(FILE *f) {
+int get_path(char *path, int npath, FILE *f) {
+    for (; npath > 0; --npath) {
+        int ch = getchar();
+        if (ch == EOF)
+            return 1;
+        if (ch == '\0') {
+            *path = '\0';
+            return 0;
+        }
+        *path++ = ch;
+    }
+    return -1;
+}
+
+void read_entries(FILE *f, int zeroflag) {
     int line_number = 0;
     /* Size field is at most 2**64 bytes, but in kB.
      * Thus max digits in 64-bit size is
@@ -65,12 +79,31 @@ void read_entries(FILE *f) {
         /* Read the next line. */
         path[du_buffer_length - 1] = '\0';
         errno = 0;
-        char *result = fgets(path, du_buffer_length, f);
-        if (!result) {
-            if (errno != 0) {
-                perror("fgets");
+        int eof = 0;
+        if (zeroflag) {
+            int result = get_path(path, du_buffer_length, f);
+            if (result == -1)
+                fprintf(stderr, "line %d: path buffer overrun\n",
+                        line_number + 1);
+            eof = result;
+        } else {
+            char * result = fgets(path, du_buffer_length, f);
+            if (!result) {
+                if (errno != 0) {
+                    perror("fgets");
+                    exit(1);
+                }
+                eof = 1;
+            }
+            if (path[du_buffer_length - 1] != '\0') {
+                if (path[du_buffer_length - 1] == '\n')
+                    path[du_buffer_length - 1] = '\0';
+                fprintf(stderr, "line %d: path buffer overrun\n",
+                        line_number + 1);
                 exit(1);
             }
+        }
+        if (eof) {
             free(path);
             entries = realloc(entries, n_entries * sizeof(entries[0]));
             if (!entries) {
@@ -80,12 +113,6 @@ void read_entries(FILE *f) {
             return;
         }
         line_number++;
-        if (path[du_buffer_length - 1] != '\0') {
-            if (path[du_buffer_length - 1] == '\n')
-                path[du_buffer_length - 1] = '\0';
-            fprintf(stderr, "line %d: buffer overrun\n", line_number);
-            exit(1);
-        }
         /*
          * Don't leak a ton of data on each path. The size
          * field and separator and newline are still leaked.
@@ -138,21 +165,22 @@ void read_entries(FILE *f) {
             perror("malloc");
             exit(1);
         }
+        /* This is a tricky little state machine for breaking
+           the path into null-terminated components. */
         entry->components[0] = index;
         entry->n_components = 1;
         while (1) {
-            if (*index == '\n' || *index == '\0') {
+            if (*index == '\n')
                 *index = '\0';
+            if (*index == '\0')
                 break;
-            }
-            else if (*index == '/') {
+            if (*index == '/') {
                 *index++ = '\0';
                 entry->components[entry->n_components++] = index;
                 assert(entry->n_components < DU_COMPONENTS_MAX);
+                continue;
             }
-            else {
-                index++;
-            }
+            index++;
         }
         /* Don't leak a ton of data on each entry. */
         entry->components =
@@ -509,9 +537,9 @@ int gui(int argv, char **argc) {
 int main(int argc, char **argv) {
 
     int c;
-    int pflag = 0, gflag = 0, rflag = 0;
+    int pflag = 0, gflag = 0, rflag = 0, zeroflag = 0;
 
-    while((c = getopt(argc, argv, "pgr")) != -1)
+    while((c = getopt(argc, argv, "pgr0")) != -1)
     {
 	switch(c)
 	{
@@ -524,6 +552,9 @@ int main(int argc, char **argv) {
 	    case 'r':	// Enable GUI
 		rflag = 1;
 		break;
+	    case '0':	// Enable GUI
+		zeroflag = 1;
+		break;
 	    case '?':	// Error handling
 	        fprintf(stderr, "Unknown option -%c\n", optopt);
 		abort();
@@ -534,7 +565,7 @@ int main(int argc, char **argv) {
 
     // Read in data from du
     status("Parsing du file.");
-    read_entries(stdin);
+    read_entries(stdin, zeroflag);
 
     if (n_entries == 0)
 	return 0;
