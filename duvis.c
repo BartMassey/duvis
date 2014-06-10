@@ -215,9 +215,7 @@ int compare_subtrees(const void *p1, const void * p2) {
     int depth = (*e1)->depth;
     q = strcmp((*e1)->components[depth + base_depth - 1],
                (*e2)->components[depth + base_depth - 1]);
-    if (q != 0)
-        return q;
-    assert(0);
+    return q;
 }
 
 
