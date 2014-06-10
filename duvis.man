@@ -1,13 +1,14 @@
-.TH DUVIS 1 "2014-05-16"
+.TH DUVIS 1 "2014-06-09"
 .SH NAME
-duvis \- ASCII visualization of du disk usage information
+duvis \- visualization of du disk usage information
 .SH SYNOPSIS
-.B duvis [-option] 
+.B duvis
+.I [-gpr0]
 .SH DESCRIPTION
 .PP
 The
 .I duvis
-program provides an ASCII visualization of the output of
+program provides a visualization of the output of
 .IR du (1)
 suitable for understanding how storage is being used. The
 output of
@@ -17,10 +18,27 @@ only the last component shown except at the root, indented
 according to nesting depth, and sorted at each level by
 decreasing size, with ties broken alphabetically.
 .SH OPTIONS
-.IP -p
-Output in post-order format.
 .IP -g
-Output to xdu style graphical user interface.
+Output to
+.I xdu
+style graphical user interface.
+.IP -p
+Processes
+.I du
+output as preorder. This involves
+an extra sorting step that is of no benefit
+on pristine
+.I du
+output.
+.IP -r
+Outputs the raw entry table rather than processed
+stats. Slightly faster, but mostly useful for debugging.
+.IP -0
+Assumes input lines are terminated by null characters rather
+than newlines, as produced by
+.IR "du -0" .
+Any large filesystem likely has some pathnames with newline
+characters in them, but nulls are illegal in pathnames.
 .SH USAGE
 .PP
 As with
@@ -41,11 +59,23 @@ prefix that was given to
 .IR du );
 both relative and absolute
 paths work.
+.PP
+The preferred
+.I du
+command is
+.I du -a0
+or
+.IR "du -ax0" ;
+note that the
+.I -0
+flag of
+.I duvis
+is necessary to parse this.
 .SH AUTHORS
 .I "Bart Massey <bart@cs.pdx.edu>"
 .I "Andrew Graham <graham4@pdx.edu>"
 .SH "SEE ALSO"
-.BR du,
+.BR du ,
 .BR xdu
 .SH LICENSE
 This software is Copyright (c) 2014 Bart Massey. It is
