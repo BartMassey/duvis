@@ -212,9 +212,7 @@ int compare_entries(const void *p1, const void * p2) {
         if (q != 0)
             return q;
     }
-    if (n1 != n2)
-        return (n1 - n2);
-    assert(0);
+    return (n1 - n2);
 }
 
 /* Because unsigned. This should get inlined. */
