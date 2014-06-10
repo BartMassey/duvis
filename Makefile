@@ -7,7 +7,7 @@
 NAME = duvis
 SRCS = duvis.c
 CC = gcc
-CDEBUG = -pg -fprofile-arcs -ftest-coverage # -O4
+CDEBUG = -O4 # -pg -fprofile-arcs -ftest-coverage
 CFLAGS = -std=c99 -Wall -g $(CDEBUG) 
 GTKFLAGS = -export-dynamic `pkg-config --cflags --libs gtk+-3.0`
 
