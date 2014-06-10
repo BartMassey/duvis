@@ -18,35 +18,12 @@
 /* For command line variables */
 #include <getopt.h>
 
-/* For GUI - with backend */
-#include <cairo.h>
-#include <gtk/gtk.h>
-
-/* Number of entries to consider "largest small". */
-#define DU_INIT_ENTRIES_SIZE (128 * 1024)
-
-/* For portability. */
-#define DU_PATH_MAX 4096
-#define DU_COMPONENTS_MAX DU_PATH_MAX
-
-/* Number of spaces of indent per level. */
-#define N_INDENT 2
-
-struct entry {
-    uint64_t size;		
-    uint32_t n_components;	// # of components that makeup this entry
-    char *path;   		// for later free 
-    char **components;		// The actual components of this entry
-    uint32_t depth;		// The depth of this entry in the directory tree
-    uint32_t n_children;	// # of children directories at this entry level
-    struct entry **children;	// Children entries of this entry
-};
+#include "duvis.h"
 
 int n_entries = 0;
-int max_entries = 0;
 struct entry *entries = 0;
 
-int get_path(char *path, int npath, FILE *f) {
+static int get_path(char *path, int npath, FILE *f) {
     for (; npath > 0; --npath) {
         int ch = getchar();
         if (ch == EOF)
@@ -60,7 +37,8 @@ int get_path(char *path, int npath, FILE *f) {
     return -1;
 }
 
-void read_entries(FILE *f, int zeroflag) {
+static void read_entries(FILE *f, int zeroflag) {
+    int max_entries = 0;
     int line_number = 0;
     /* Size field is at most 2**64 bytes, but in kB.
      * Thus max digits in 64-bit size is
@@ -195,14 +173,14 @@ void read_entries(FILE *f, int zeroflag) {
 }
 
 /* Component length of initial prefix. */
-uint32_t base_depth = 0;
+static uint32_t base_depth = 0;
 
 /*
  * Priorities for sort:
  *   (1) Prefixes before path extensions.
  *   (2) Ascending alphabetical order.
  */
-int compare_entries(const void *p1, const void * p2) {
+static int compare_entries(const void *p1, const void * p2) {
     const struct entry *e1 = p1;
     const struct entry *e2 = p2;
     int n1 = e1->n_components;
@@ -216,7 +194,7 @@ int compare_entries(const void *p1, const void * p2) {
 }
 
 /* Because unsigned. This should get inlined. */
-int compare_sizes(uint32_t s1, uint32_t s2) {
+static int compare_sizes(uint32_t s1, uint32_t s2) {
     if (s1 < s2)
         return -1;
     if (s1 > s2)
@@ -229,7 +207,7 @@ int compare_sizes(uint32_t s1, uint32_t s2) {
  *   (1) Descending entry size.
  *   (2) Ascending alphabetical order.
  */
-int compare_subtrees(const void *p1, const void * p2) {
+static int compare_subtrees(const void *p1, const void * p2) {
     struct entry * const *e1 = p1;
     struct entry * const *e2 = p2;
     int s1 = (*e1)->size;
@@ -250,7 +228,8 @@ int compare_subtrees(const void *p1, const void * p2) {
  * utilizes post-order traversal and takes advantage of the
  * existing du sorted output - assumes user wants du output
  */
-void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
+static void build_tree_postorder(uint32_t start, uint32_t end,
+                                 uint32_t depth) {
     uint32_t last = end - 1;
     struct entry *e = &entries[last];
     uint32_t offset = depth + base_depth;
@@ -305,10 +284,11 @@ void build_tree_postorder(uint32_t start, uint32_t end, uint32_t depth) {
 }
 
 /*
- * Build a tree in the entry structure. The three-pass design
+ * Build a tree in the entry structure. The two-pass design
  * is for monotonic malloc() usage, because efficiency.
  */
-void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
+static void build_tree_preorder(uint32_t start, uint32_t end,
+                                uint32_t depth) {
     
     /* Set up for calculation. */
     struct entry *e = &entries[start];
@@ -353,12 +333,12 @@ void build_tree_preorder(uint32_t start, uint32_t end, uint32_t depth) {
     assert(n_children == e->n_children);
 }
 
-void indent(uint32_t depth) {
+static void indent(uint32_t depth) {
     for (uint64_t i = 0; i < N_INDENT * depth; i++)
         putchar(' ');
 }
 
-void show_entries(struct entry *e) {
+static void show_entries(struct entry *e) {
     uint32_t depth = e->depth;
     if (depth == 0) {
         printf("%s", e->components[0]);
@@ -377,7 +357,7 @@ void show_entries(struct entry *e) {
         show_entries(e->children[i]);
 }
 
-void show_entries_raw(struct entry e[], int n) {
+static void show_entries_raw(struct entry e[], int n) {
     uint32_t depth = 0;
     uint32_t offset = 0;
 
@@ -391,16 +371,17 @@ void show_entries_raw(struct entry e[], int n) {
     } 
 }
 
-void status(char *msg) {
+static void status(char *msg) {
     static int pass = 1;
     fprintf(stderr, "(%d) %s\n", pass++, msg);
 } 
 
+#ifdef DEBUG
 /*
  *  Helper/testing function for displaying detailed information 
  *  about the entries that have been read in from du.
  */
-void dispEntryDetail (struct entry e[], int n) { 
+static void dispEntryDetail (struct entry e[], int n) { 
     printf("Detail of Entries\n# of Entries: %d\n\n", n);
 
     for(int i = 0; i < n; i++) {
@@ -421,12 +402,13 @@ void dispEntryDetail (struct entry e[], int n) {
     }
 }
 
+
 /*
  *  Helper/testing function for displaying a simplified order
  *  that entries are currently in - formatted for directory
  *  view. Includes information about the size.
  */ 
-void dispEntries(struct entry e[], int n) {
+static void dispEntries(struct entry e[], int n) {
     printf("Simple Entries\n# of Entries: %d\n\n", n);
 
     for(int i = 0; i < n; i++) {
@@ -438,99 +420,8 @@ void dispEntries(struct entry e[], int n) {
         }
     }
 }
+#endif
 
-static void draw_node(cairo_t *cr, struct entry *e, int x, int y, int width, int height) {
-
-    /* Length of 2**64 - 1, +1 for null */
-    char sizeStr[21];
-
-    int txtX = width / 4; 
-    int txtY = height / 2;
-
-    /* Copy uint64_t into char buffer */
-    sprintf(sizeStr, "%" PRIu64, e->size);
-
-    /* Draw the rectangle container */
-    cairo_rectangle(cr, x, y, width, height);
-    cairo_stroke(cr);
-
-    /* Draw the label */
-    cairo_move_to(cr, txtX, txtY);
-    cairo_show_text(cr, e->components[0]);
-    cairo_show_text(cr, " (");
-    cairo_show_text(cr, sizeStr);
-    cairo_show_text(cr, ")");
-}
-
-/* Perform the actual drawing of the entries */
-static void do_drawing(GtkWidget *widget, cairo_t *cr) {
-
-    /* How much space was the window actually allocated? */
-    GtkAllocation *allocation = g_new0 (GtkAllocation, 1);
-    gtk_widget_get_allocation(GTK_WIDGET(widget), allocation);
-
-    /* Make sure that cairo is aware of the dimensions */
-    double width = allocation->width;
-    double height = allocation->height;
-
-    /* Allocation no longer needed */
-    g_free(allocation);
-   
-    /* Set cairo drawing variables */
-    cairo_set_source_rgb(cr, 0, 0, 0);
-    cairo_select_font_face(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 20);
-    cairo_set_line_width(cr, 1);
-    cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
-    
-    /* Begin drawing the nodes */
-    draw_node(cr, &entries[0], 0, 0, width, height); 
-}
-
-/* Call up the cairo functionality */
-static gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-   
-    do_drawing(widget, cr);
-
-    return FALSE;
-}
-
-/* Determine the size of the window */
-void getSize(GtkWidget *widget, GtkAllocation *allocation, void *data) {
-
-    printf("width = %d, height = %d\n", allocation->width, allocation->height);
-}
-
-/* Initialize the window, drawing surface, and functionality */
-int gui(int argv, char **argc) {
-
-    GtkWidget *window;
-    GtkWidget *darea;
-
-    /* Initialize GTK, the window, and the drawing surface */
-    gtk_init(&argv, &argc); 
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    darea = gtk_drawing_area_new();
-
-    /* Put the drawing surface 'inside' the window */
-    gtk_container_add(GTK_CONTAINER(window), darea);
-
-    /* Functionality handling - drawing and exiting */
-    g_signal_connect(G_OBJECT(darea), "draw", G_CALLBACK(on_draw_event), NULL);
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    g_signal_connect(G_OBJECT(darea), "size-allocate", G_CALLBACK(getSize), NULL);
-
-    /* Default window settings */
-    gtk_window_set_title(GTK_WINDOW(window), "Duvis");
-    gtk_window_set_default_size(GTK_WINDOW(window), 600, 480);
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-
-    /* Display the window */
-    gtk_widget_show_all(window);
-    gtk_main();
-
-    return (0);
-}
 
 int main(int argc, char **argv) {
 
