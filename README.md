@@ -16,14 +16,14 @@ are a couple of reasons for replacing `xdu`:
 2. It's neat that `xdu` is an X Window System visualization.
    Sadly, though, I often would really prefer ASCII art for
    portability: I don't need the graphics, and being able to
-   work with the output in my text editor is rather sweet.
+   work with the output in my text editor can be rather sweet.
 
 3. The visualization `xdu` provides isn't very well matched
    to my normal task: finding things to archive or delete
    from large systems.
 
-The `duvis` visualization is produced quickly, is ASCII, and
-works acceptably well for its target use case.
+The `duvis` visualization is produced quickly, defaults to
+ASCII, and works acceptably well for its target use case.
 
 ## Usage
 
@@ -35,10 +35,13 @@ the file has an entry (with the exception of the common
 prefix that was given to `du`); both relative and absolute
 paths work.
 
-The output of `duvis` is the paths that were input, with
-only the last component shown except at the root, indented
-according to nesting depth, and sorted at each level by
-decreasing size, with ties broken alphabetically.
+The ASCII output of `duvis` is the paths that were input,
+with only the last component shown except at the root,
+indented according to nesting depth, and sorted at each
+level by decreasing size, with ties broken alphabetically.
+
+There is also a graphics mode of `duvis` similar to that of
+`xdu`.
 
 ## License
 
