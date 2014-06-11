@@ -22,6 +22,9 @@
 
 int n_entries = 0;
 struct entry *entries = 0;
+struct entry *root_entry;
+int base_depth = 0;   /* Component length of initial prefix. */
+
 
 static int get_path(char *path, int npath, FILE *f) {
     for (; npath > 0; --npath) {
@@ -171,9 +174,6 @@ static void read_entries(FILE *f, int zeroflag) {
     }
     assert(0);
 }
-
-/* Component length of initial prefix. */
-static uint32_t base_depth = 0;
 
 /*
  * Priorities for sort:
@@ -473,25 +473,23 @@ int main(int argc, char **argv) {
         }
 
 	status("Building tree (preorder).");
-	base_depth = entries[0].n_components;
+        root_entry = &entries[0];
+	base_depth = root_entry->n_components;
 	build_tree_preorder(0, n_entries, 0);
     } else {
 	status("Building tree (postorder).");
-        base_depth = entries[n_entries - 1].n_components;
+        root_entry = &entries[n_entries - 1];
+        base_depth = root_entry->n_components;
 	build_tree_postorder(0, n_entries, 0);
     }
 
     status("Rendering tree.");
-    if (gflag) {
+    if (gflag)
         gui(argc, argv);
-    } else if (rflag) {
+    else if (rflag)
         show_entries_raw(entries, n_entries);
-    } else {
-        if (pflag)
-            show_entries(&entries[0]);
-        else
-            show_entries(&entries[n_entries - 1]);
-    }
+    else
+        show_entries(root_entry);
     
     return(0); 
 }

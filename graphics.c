@@ -12,6 +12,8 @@
 
 #include "duvis.h"
 
+static int display_width, display_height;
+
 static void draw_node(cairo_t *cr, struct entry *e,
                       int x, int y, int width, int height) {
 
@@ -30,7 +32,15 @@ static void draw_node(cairo_t *cr, struct entry *e,
 
     /* Draw the label */
     cairo_move_to(cr, txtX, txtY);
-    cairo_show_text(cr, e->components[0]);
+    if (e->depth == 0) {
+        cairo_show_text(cr, e->components[0]);
+        for (int i = 1; i < base_depth; i++) {
+            cairo_show_text(cr, "/");
+            cairo_show_text(cr, e->components[i]);
+        }
+    } else {
+        cairo_show_text(cr, e->components[e->n_components - 1]);
+    }
     cairo_show_text(cr, " (");
     cairo_show_text(cr, sizeStr);
     cairo_show_text(cr, ")");
@@ -42,10 +52,8 @@ static void do_drawing(GtkWidget *widget, cairo_t *cr) {
     /* How much space was the window actually allocated? */
     GtkAllocation *allocation = g_new0 (GtkAllocation, 1);
     gtk_widget_get_allocation(GTK_WIDGET(widget), allocation);
-
-    /* Make sure that cairo is aware of the dimensions */
-    double width = allocation->width;
-    double height = allocation->height;
+    display_width = allocation->width;
+    display_height = allocation->height;
 
     /* Allocation no longer needed */
     g_free(allocation);
@@ -59,7 +67,7 @@ static void do_drawing(GtkWidget *widget, cairo_t *cr) {
     cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
     
     /* Begin drawing the nodes */
-    draw_node(cr, &entries[0], 0, 0, width, height); 
+    draw_node(cr, root_entry, 0, 0, display_width, display_height); 
 }
 
 /* Call up the cairo functionality */
@@ -74,7 +82,8 @@ static gboolean on_draw_event(GtkWidget *widget, cairo_t *cr,
 /* Determine the size of the window */
 static void getSize(GtkWidget *widget,
                     GtkAllocation *allocation, void *data) {
-    printf("width = %d, height = %d\n", allocation->width, allocation->height);
+    display_width = allocation->width;
+    display_height = allocation->height;
 }
 
 /* Initialize the window, drawing surface, and functionality */

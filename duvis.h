@@ -27,5 +27,7 @@ struct entry {
 
 extern int n_entries;
 extern struct entry *entries;
+extern struct entry *root_entry;
+extern int base_depth;
 
 extern int gui(int argv, char **argc);
