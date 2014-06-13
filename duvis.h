@@ -21,6 +21,7 @@ struct entry {
     char *path;               // for later free 
     char **components;        // The actual components of this entry
     uint32_t depth;	      // The depth of this entry in the directory tree
+    uint32_t max_depth;	      // The depth of the tree at this entry
     uint32_t n_children;      // # of children directories at this entry level
     struct entry **children;  // Children entries of this entry
 };

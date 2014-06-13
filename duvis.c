@@ -422,6 +422,16 @@ static void dispEntries(struct entry e[], int n) {
 }
 #endif
 
+int find_max_depths(struct entry *e) {
+    int max_depth = 0;
+    for (int i = 0; i < e->n_children; i++) {
+        struct entry *c = e->children[i];
+        find_max_depths(c);
+        if (c->max_depth > max_depth)
+            max_depth = c->max_depth;
+    }
+    return max_depth + 1;
+}
 
 int main(int argc, char **argv) {
 
@@ -483,13 +493,18 @@ int main(int argc, char **argv) {
 	build_tree_postorder(0, n_entries, 0);
     }
 
-    status("Rendering tree.");
-    if (gflag)
+    if (gflag) {
+        status("Recording depths.");
+        find_max_depths(root_entry);
+        status("Rendering tree.");
         gui(argc, argv);
-    else if (rflag)
+    } else if (rflag) {
+        status("Emitting entries.");
         show_entries_raw(entries, n_entries);
-    else
+    } else {
+        status("Emitting tree.");
         show_entries(root_entry);
+    }
     
     return(0); 
 }

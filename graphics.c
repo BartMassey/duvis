@@ -46,6 +46,10 @@ static void draw_node(cairo_t *cr, struct entry *e,
     cairo_show_text(cr, ")");
 }
 
+static void draw_tree(cairo_t *cr, struct entry *e) {
+    draw_node(cr, e, 0, 0, display_width, display_height);
+}
+
 /* Perform the actual drawing of the entries */
 static void do_drawing(GtkWidget *widget, cairo_t *cr) {
 
@@ -67,7 +71,7 @@ static void do_drawing(GtkWidget *widget, cairo_t *cr) {
     cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
     
     /* Begin drawing the nodes */
-    draw_node(cr, root_entry, 0, 0, display_width, display_height); 
+    draw_tree(cr, root_entry);
 }
 
 /* Call up the cairo functionality */
