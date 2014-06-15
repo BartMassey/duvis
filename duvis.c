@@ -26,12 +26,12 @@ struct entry *root_entry;
 int base_depth = 0;   /* Component length of initial prefix. */
 
 
-static int get_path(char *path, int npath, FILE *f) {
+static int path_get(char *path, int npath, FILE *f, int zeroflag) {
     for (; npath > 0; --npath) {
         int ch = getchar();
         if (ch == EOF)
             return 1;
-        if (ch == '\0') {
+        if ((zeroflag && ch == '\0') || (!zeroflag && ch == '\n')) {
             *path = '\0';
             return 0;
         }
@@ -93,32 +93,12 @@ static void read_entries(FILE *f, int zeroflag) {
         /* Read the next line. */
         path[DU_BUFFER_LENGTH - 1] = '\0';
         errno = 0;
-        int eof = 0;
-        if (zeroflag) {
-            int result = get_path(path, DU_BUFFER_LENGTH, f);
-            if (result == -1)
-                fprintf(stderr, "line %d: path buffer overrun\n",
-                        line_number + 1);
-            eof = result;
-        } else {
-            char * result = fgets(path, DU_BUFFER_LENGTH, f);
-            if (!result) {
-                if (errno != 0) {
-                    perror("fgets");
-                    exit(1);
-                }
-                eof = 1;
-            }
-            if (path[DU_BUFFER_LENGTH - 1] != '\0') {
-                if (path[DU_BUFFER_LENGTH - 1] == '\n')
-                    path[DU_BUFFER_LENGTH - 1] = '\0';
-                fprintf(stderr, "line %d: path buffer overrun\n",
-                        line_number + 1);
-                exit(1);
-            }
-        }
+        int result = path_get(path, DU_BUFFER_LENGTH, f, zeroflag);
+        if (result == -1)
+            fprintf(stderr, "line %d: path buffer overrun\n",
+                    line_number + 1);
         path_close(path);
-        if (eof) {
+        if (result) {
             path_cleanup();
             entries = realloc(entries, n_entries * sizeof(entries[0]));
             if (!entries) {
