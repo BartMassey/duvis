@@ -19,4 +19,4 @@ duvis:	$(OBJS)
 $(OBJS): duvis.h
 
 clean:
-	-rm -f duvis 
+	-rm -f $(OBJS) duvis 

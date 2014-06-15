@@ -35,22 +35,32 @@ struct entry *root_entry;
 int base_depth = 0;   /* Component length of initial prefix. */
 
 
-static int path_get(char *path, int npath, FILE *f, int zeroflag) {
-    for (; npath > 0; --npath) {
-        int ch = fgetc(f);
-        if (ch == EOF)
-            return 1;
-        if ((zeroflag && ch == '\0') || (!zeroflag && ch == '\n')) {
-            *path = '\0';
-            return 0;
-        }
-        *path++ = ch;
-    }
-    return -1;
-}
-
 static char *path_buffer = 0;
 static uint64_t n_path_buffer = 0;
+
+static inline int path_get(char *path, int npath, FILE *f, int zeroflag) {
+    int nread = 0;
+    while (1) {
+        if (nread >= npath)
+            return -1;
+        int ch = fgetc(f);
+        if (ch == EOF) {
+            if (nread > 0) {
+                fprintf(stderr, "warning: unterminated final path\n");
+                nread++;
+                break;
+            }
+            return 0;
+        }
+        nread++;
+        if ((zeroflag && ch == '\0') || (!zeroflag && ch == '\n'))
+            break;
+        *path++ = ch;
+    }
+    *path = '\0';
+    n_path_buffer -= DU_BUFFER_LENGTH - nread;
+    return nread;
+}
 
 static inline char *path_alloc() {
     if (!path_buffer || n_path_buffer + DU_BUFFER_LENGTH > MAX_PATH_BUFFER) {
@@ -64,15 +74,6 @@ static inline char *path_alloc() {
     char *result = &path_buffer[n_path_buffer];
     n_path_buffer += DU_BUFFER_LENGTH;
     return result;
-}
-
-/*
- * Don't leak a ton of data on each path. The size
- * field and separator and newline are still leaked.
- * C'est la vie.
- */
-static inline void path_close(char *path) {
-    n_path_buffer -= DU_BUFFER_LENGTH - strlen(path) - 1;
 }
 
 /* Don't leak spare portion of last block */
@@ -89,19 +90,17 @@ static void read_entries(FILE *f, int zeroflag) {
         /* Get a buffer for the line data. */
         char *path = path_alloc();
         if (!path) {
-            perror("malloc");
+            perror("malloc(path)");
             exit(1);
         }
         /* Read the next line. */
         path[DU_BUFFER_LENGTH - 1] = '\0';
         errno = 0;
-        int result = path_get(path, DU_BUFFER_LENGTH, f, zeroflag);
-        if (result == -1)
+        int nchars = path_get(path, DU_BUFFER_LENGTH, f, zeroflag);
+        if (nchars == -1)
             fprintf(stderr, "line %d: path buffer overrun\n",
                     line_number + 1);
-        path_close(path);
-        if (result) {
-            path_cleanup();
+        if (nchars == 0) {
             entries = realloc(entries, n_entries * sizeof(entries[0]));
             if (!entries) {
                 perror("realloc");
@@ -157,7 +156,7 @@ static void read_entries(FILE *f, int zeroflag) {
         entry->components[0] = index;
         entry->n_components = 1;
         while (1) {
-            if (*index == '\n')
+            if (!zeroflag && *index == '\n')
                 *index = '\0';
             if (*index == '\0')
                 break;
