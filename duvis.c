@@ -20,6 +20,15 @@
 
 #include "duvis.h"
 
+/* Size field is at most 2**64 bytes, but in kB.
+ * Thus max digits in 64-bit size is
+ *   ceil(log10(2**64 / 1024)) = 17
+ * Buffer is size field + separator + "./" + path + newline.
+ */
+#define DU_BUFFER_LENGTH (17 + 1 + (2 + DU_PATH_MAX) + 1)
+#define MAX_PATH_BUFFER (1024 * DU_BUFFER_LENGTH)
+#define IO_BUFFER_LENGTH (512 * DU_BUFFER_LENGTH)
+
 int n_entries = 0;
 struct entry *entries = 0;
 struct entry *root_entry;
@@ -40,13 +49,6 @@ static int path_get(char *path, int npath, FILE *f, int zeroflag) {
     return -1;
 }
 
-/* Size field is at most 2**64 bytes, but in kB.
- * Thus max digits in 64-bit size is
- *   ceil(log10(2**64 / 1024)) = 17
- * Buffer is size field + separator + "./" + path + newline.
- */
-#define DU_BUFFER_LENGTH (17 + 1 + (2 + DU_PATH_MAX) + 1)
-#define MAX_PATH_BUFFER (1024 * DU_BUFFER_LENGTH)
 static char *path_buffer = 0;
 static uint64_t n_path_buffer = 0;
 
@@ -437,6 +439,8 @@ int find_max_depths(struct entry *e) {
     return max_depth + 1;
 }
 
+static char *iobuf;
+
 int main(int argc, char **argv) {
 
     int c;
@@ -464,6 +468,18 @@ int main(int argc, char **argv) {
 	    default:	// Something really weird happened
 		abort();
 	}
+    }
+
+    // Set up for large IOs
+    iobuf = malloc(IO_BUFFER_LENGTH);
+    if (!iobuf) {
+        perror("malloc(iobuf)");
+        exit(1);
+    }
+    int result = setvbuf(stdin, iobuf, _IOFBF, IO_BUFFER_LENGTH);
+    if (result) {
+        perror("setvbuf");
+        exit(1);
     }
 
     // Read in data from du
