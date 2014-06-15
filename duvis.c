@@ -27,7 +27,7 @@
  */
 #define DU_BUFFER_LENGTH (17 + 1 + (2 + DU_PATH_MAX) + 1)
 #define MAX_PATH_BUFFER (1024 * DU_BUFFER_LENGTH)
-#define IO_BUFFER_LENGTH (512 * DU_BUFFER_LENGTH)
+#define IO_BUFFER_LENGTH (1024 * 1024)
 
 int n_entries = 0;
 struct entry *entries = 0;
@@ -37,7 +37,7 @@ int base_depth = 0;   /* Component length of initial prefix. */
 
 static int path_get(char *path, int npath, FILE *f, int zeroflag) {
     for (; npath > 0; --npath) {
-        int ch = getchar();
+        int ch = fgetc(f);
         if (ch == EOF)
             return 1;
         if ((zeroflag && ch == '\0') || (!zeroflag && ch == '\n')) {
@@ -445,6 +445,7 @@ int main(int argc, char **argv) {
 
     int c;
     int pflag = 0, gflag = 0, rflag = 0, zeroflag = 0;
+    FILE *inf = stdin;
 
     while((c = getopt(argc, argv, "pgr0")) != -1)
     {
@@ -464,10 +465,22 @@ int main(int argc, char **argv) {
 		break;
 	    case '?':	// Error handling
 	        fprintf(stderr, "Unknown option -%c\n", optopt);
-		abort();
+	        exit(1);
 	    default:	// Something really weird happened
 		abort();
 	}
+    }
+    if (optind < argc) {
+        if (optind < argc - 1) {
+            fprintf(stderr, "extra argument(s)\n");
+            exit(1);
+        }
+        fprintf(stderr, "open %s\n", argv[optind]);
+        inf = fopen(argv[optind], "r");
+        if (!inf) {
+            perror("fopen");
+            exit(1);
+        }
     }
 
     // Set up for large IOs
@@ -476,7 +489,7 @@ int main(int argc, char **argv) {
         perror("malloc(iobuf)");
         exit(1);
     }
-    int result = setvbuf(stdin, iobuf, _IOFBF, IO_BUFFER_LENGTH);
+    int result = setvbuf(inf, iobuf, _IOFBF, IO_BUFFER_LENGTH);
     if (result) {
         perror("setvbuf");
         exit(1);
@@ -484,7 +497,7 @@ int main(int argc, char **argv) {
 
     // Read in data from du
     status("Parsing du file.");
-    read_entries(stdin, zeroflag);
+    read_entries(inf, zeroflag);
 
     if (n_entries == 0)
 	return 0;
