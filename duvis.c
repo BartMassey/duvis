@@ -40,35 +40,68 @@ static int get_path(char *path, int npath, FILE *f) {
     return -1;
 }
 
+/* Size field is at most 2**64 bytes, but in kB.
+ * Thus max digits in 64-bit size is
+ *   ceil(log10(2**64 / 1024)) = 17
+ * Buffer is size field + separator + "./" + path + newline.
+ */
+#define DU_BUFFER_LENGTH (17 + 1 + (2 + DU_PATH_MAX) + 1)
+#define MAX_PATH_BUFFER (1024 * DU_BUFFER_LENGTH)
+static char *path_buffer = 0;
+static uint64_t n_path_buffer = 0;
+
+static inline char *path_alloc() {
+    if (!path_buffer || n_path_buffer + DU_BUFFER_LENGTH > MAX_PATH_BUFFER) {
+        path_buffer = malloc(MAX_PATH_BUFFER);
+        if (!path_buffer) {
+            perror("malloc");
+            exit(1);
+        }
+        n_path_buffer = 0;
+    }
+    char *result = &path_buffer[n_path_buffer];
+    n_path_buffer += DU_BUFFER_LENGTH;
+    return result;
+}
+
+/*
+ * Don't leak a ton of data on each path. The size
+ * field and separator and newline are still leaked.
+ * C'est la vie.
+ */
+static inline void path_close(char *path) {
+    n_path_buffer -= DU_BUFFER_LENGTH - strlen(path) - 1;
+}
+
+/* Don't leak spare portion of last block */
+static inline void path_cleanup() {
+    if (path_buffer)
+        path_buffer = realloc(path_buffer, n_path_buffer);
+}
+
 static void read_entries(FILE *f, int zeroflag) {
     int max_entries = 0;
     int line_number = 0;
-    /* Size field is at most 2**64 bytes, but in kB.
-     * Thus max digits in 64-bit size is
-     *   ceil(log10(2**64 / 1024)) = 17
-     * Buffer is size field + separator + "./" + path + newline.
-     */
-    int du_buffer_length = 17 + 1 + (2 + DU_PATH_MAX) + 1;
     /* Loop reading lines from the du file and processing them. */
     while (1) {
         /* Get a buffer for the line data. */
-        char *path = malloc(du_buffer_length);
+        char *path = path_alloc();
         if (!path) {
             perror("malloc");
             exit(1);
         }
         /* Read the next line. */
-        path[du_buffer_length - 1] = '\0';
+        path[DU_BUFFER_LENGTH - 1] = '\0';
         errno = 0;
         int eof = 0;
         if (zeroflag) {
-            int result = get_path(path, du_buffer_length, f);
+            int result = get_path(path, DU_BUFFER_LENGTH, f);
             if (result == -1)
                 fprintf(stderr, "line %d: path buffer overrun\n",
                         line_number + 1);
             eof = result;
         } else {
-            char * result = fgets(path, du_buffer_length, f);
+            char * result = fgets(path, DU_BUFFER_LENGTH, f);
             if (!result) {
                 if (errno != 0) {
                     perror("fgets");
@@ -76,16 +109,17 @@ static void read_entries(FILE *f, int zeroflag) {
                 }
                 eof = 1;
             }
-            if (path[du_buffer_length - 1] != '\0') {
-                if (path[du_buffer_length - 1] == '\n')
-                    path[du_buffer_length - 1] = '\0';
+            if (path[DU_BUFFER_LENGTH - 1] != '\0') {
+                if (path[DU_BUFFER_LENGTH - 1] == '\n')
+                    path[DU_BUFFER_LENGTH - 1] = '\0';
                 fprintf(stderr, "line %d: path buffer overrun\n",
                         line_number + 1);
                 exit(1);
             }
         }
+        path_close(path);
         if (eof) {
-            free(path);
+            path_cleanup();
             entries = realloc(entries, n_entries * sizeof(entries[0]));
             if (!entries) {
                 perror("realloc");
@@ -94,16 +128,6 @@ static void read_entries(FILE *f, int zeroflag) {
             return;
         }
         line_number++;
-        /*
-         * Don't leak a ton of data on each path. The size
-         * field and separator and newline are still leaked.
-         * C'est la vie.
-         */
-        path = realloc(path, strlen(path) + 1);
-        if (!path) {
-            perror("realloc");
-            exit(1);
-        }
         /* Allocate a new entry for the line. */
         while (n_entries >= max_entries) {
             if (max_entries == 0)
