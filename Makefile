@@ -5,7 +5,7 @@
 
 
 NAME = duvis
-SRCS = duvis.h duvis.c graphics.c
+SRCS = duvis.h pathmem.h duvis.c graphics.c
 OBJS = duvis.o graphics.o
 CC = gcc
 CDEBUG = -O4 # -pg -fprofile-arcs -ftest-coverage
@@ -17,6 +17,8 @@ duvis:	$(OBJS)
 	$(CC) $(CFLAGS) -o $(NAME) $(OBJS) $(LIBS)
 
 $(OBJS): duvis.h
+
+duvis.o: pathmem.h
 
 clean:
 	-rm -f $(OBJS) duvis 
